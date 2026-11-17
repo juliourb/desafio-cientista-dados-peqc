@@ -1,0 +1,20 @@
+name: desafio_rmi
+version: "1.0.0"
+profile: desafio_rmi        # nome da conexão que o dbt vai procurar no profiles.yml
+
+model-paths: ["models"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+seed-paths: ["seeds"]
+
+models:
+  desafio_rmi:
+    staging:
+      +materialized: view   # view = consulta salva, sem custo de armazenamento
+      +schema: staging
+    intermediate:
+      +materialized: view
+      +schema: intermediate
+    marts:
+      +materialized: table  # table = resultado gravado, rápido para quem consome
+      +schema: marts
