@@ -21,9 +21,29 @@ renomeado as (
     from source
 ),
 
-deduplicado as (
-    -- EDA: 34 linhas repetidas no grao. Mesma politica da frequencia.
+sem_copias as (
+    -- 1) remove copias identicas
     select distinct * from renomeado
+),
+
+consolidado as (
+    -- 2) regra "pior caso" (eda/saida_03.txt): 31 grupos com 2 versoes
+    --    (22 = uma versao incompleta; 8 = notas diferentes). MIN por coluna:
+    --    menor frequencia e menor nota; MIN ignora nulos, entao preenche lacunas.
+    --    Em ate 8 grupos a linha final combina valores das duas versoes (documentado).
+    select
+        id_aluno,
+        id_turma,
+        bimestre,
+        min(frequencia_bimestre_pct) as frequencia_bimestre_pct,
+        min(nota_disciplina_1)       as nota_disciplina_1,
+        min(nota_disciplina_2)       as nota_disciplina_2,
+        min(nota_disciplina_3)       as nota_disciplina_3,
+        min(nota_disciplina_4)       as nota_disciplina_4,
+        count(*)                     as qtd_versoes_distintas,
+        count(*) > 1                 as registro_conflitante
+    from sem_copias
+    group by id_aluno, id_turma, bimestre
 )
 
-select * from deduplicado
+select * from consolidado

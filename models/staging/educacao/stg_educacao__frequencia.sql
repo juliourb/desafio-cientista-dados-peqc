@@ -16,17 +16,37 @@ renomeado as (
         disciplina,
         cast(data_inicio as date) as data_inicio,   -- STRING 'AAAA-MM-DD' -> DATE
         cast(data_fim as date)    as data_fim,
-        frequencia                as frequencia_valor_bruto,
-        -- formula documentada: frequencia = 100 - faltas/dias_letivos
-        -- logo faltas/dias_letivos = 100 - frequencia (conversao de unidade, nao hipotese)
-        round(100 - frequencia, 6) as razao_faltas_por_dia
+        frequencia                as frequencia_valor_bruto
     from source
 ),
 
-deduplicado as (
-    -- EDA: 2.576 linhas repetidas no grao. Aqui removemos so copias identicas;
-    -- se restar conflito, o teste de unicidade no YAML avisa (warn).
+sem_copias as (
+    -- 1) remove copias identicas (lixo de carga, sem ambiguidade)
     select distinct * from renomeado
+),
+
+consolidado as (
+    -- 2) regra de qualidade "pior caso" (eda/saida_03.txt):
+    --    1.093 grupos com 2 versoes que so diferem na frequencia (uma delas 100,0).
+    --    Fica o MENOR valor = mais faltas. Produto de alerta: prefere-se falso positivo
+    --    a perder aluno em risco. A ambiguidade fica visivel em registro_conflitante.
+    select
+        id_aluno,
+        id_turma,
+        id_escola,
+        disciplina,
+        data_inicio,
+        data_fim,
+        min(frequencia_valor_bruto) as frequencia_valor_bruto,
+        count(*)                    as qtd_versoes_distintas,
+        count(*) > 1                as registro_conflitante
+    from sem_copias
+    group by id_aluno, id_turma, id_escola, disciplina, data_inicio, data_fim
 )
 
-select * from deduplicado
+select
+    *,
+    -- formula documentada: frequencia = 100 - faltas/dias_letivos
+    -- logo faltas/dias_letivos = 100 - frequencia (conversao de unidade, nao hipotese)
+    round(100 - frequencia_valor_bruto, 6) as razao_faltas_por_dia
+from consolidado

@@ -66,14 +66,13 @@ models:
 
   - name: stg_educacao__frequencia
     description: >
-      Frequencia por aluno x turma x disciplina x periodo (fev-jul). Copias identicas removidas.
-      O valor bruto nao e percentual; use razao_faltas_por_dia ou a frequencia da avaliacao.
+      Frequencia por aluno x turma x disciplina x periodo (fev-jul). Copias identicas removidas;
+      versoes conflitantes consolidadas pela regra "pior caso" (menor frequencia) e sinalizadas
+      em registro_conflitante. O valor bruto nao e percentual; use razao_faltas_por_dia.
     data_tests:
-      - dbt_utils.unique_combination_of_columns:   # (EDA 2) duplicatas no grao
+      - dbt_utils.unique_combination_of_columns:   # grao garantido pelo modelo -> error
           arguments:
             combination_of_columns: [id_aluno, id_turma, disciplina, data_inicio]
-          config:
-            severity: warn
       - dbt_utils.expression_is_true:
           arguments:
             expression: "data_fim >= data_inicio"
@@ -102,12 +101,23 @@ models:
               arguments:
                 values: ['disciplina_1', 'disciplina_2', 'disciplina_3', 'disciplina_4']
       - name: frequencia_valor_bruto
-        description: "100 - faltas/dias_letivos (escala nao percentual)."
+        description: "100 - faltas/dias_letivos (escala nao percentual). Em conflito, o menor valor."
         data_tests:
           - dbt_expectations.expect_column_values_to_be_between:
               arguments:
                 min_value: 0
                 max_value: 100
+      - name: qtd_versoes_distintas
+        description: "Quantas versoes diferentes do registro existiam na origem (1 = sem conflito)."
+        data_tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 1
+      - name: registro_conflitante
+        description: "TRUE se havia versoes conflitantes. Base da futura fila de pendencias de qualidade."
+        data_tests:
+          - not_null
       - name: razao_faltas_por_dia
         description: "faltas / dias_letivos. Pode passar de 1 se as faltas forem contadas por aula."
         data_tests:
@@ -116,13 +126,14 @@ models:
                 min_value: 0
 
   - name: stg_educacao__avaliacao
-    description: "Avaliacao por aluno x turma x bimestre, formato largo. Copias identicas removidas."
+    description: >
+      Avaliacao por aluno x turma x bimestre, formato largo. Copias identicas removidas;
+      versoes conflitantes consolidadas pela regra "pior caso" (MIN por coluna) e sinalizadas
+      em registro_conflitante.
     data_tests:
-      - dbt_utils.unique_combination_of_columns:   # (EDA 2) duplicatas no grao
+      - dbt_utils.unique_combination_of_columns:   # grao garantido pelo modelo -> error
           arguments:
             combination_of_columns: [id_aluno, id_turma, bimestre]
-          config:
-            severity: warn
     columns:
       - name: id_aluno
         data_tests:
@@ -165,3 +176,14 @@ models:
               arguments:
                 min_value: 0
                 max_value: 10
+      - name: qtd_versoes_distintas
+        description: "Quantas versoes diferentes do registro existiam na origem (1 = sem conflito)."
+        data_tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 1
+      - name: registro_conflitante
+        description: "TRUE se havia versoes conflitantes. Base da futura fila de pendencias de qualidade."
+        data_tests:
+          - not_null
