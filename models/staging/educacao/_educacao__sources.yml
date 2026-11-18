@@ -1,0 +1,85 @@
+version: 2
+
+sources:
+  - name: educacao
+    description: >
+      Dados educacionais anonimizados (ano mascarado como 2000), carregados de
+      gs://case_vagas/rmi/ para o dataset raw_educacao via `bq load --replace`.
+      Camada bronze: nenhuma transformacao. Achados de qualidade em eda/.
+    schema: raw_educacao
+    config:
+      freshness:
+        warn_after: {count: 30, period: day}
+    tables:
+      - name: aluno
+        description: "Um registro por aluno (97.044). Grao: id_aluno (unico na EDA)."
+        columns:
+          - name: id_aluno
+            description: "Hash do aluno gravado como bytes (BYTES). Convertido para hexadecimal no staging."
+          - name: id_turma
+            description: "Turma atual do aluno. Pares (id_aluno, id_turma) identicos aos da tabela turma."
+          - name: faixa_etaria
+            description: "Faixa etaria: 0-5, 6-10, 11-14, 15-17, 18+."
+          - name: bairro
+            description: "Bairro de residencia em hash com salt (0,07% nulos). Nao casa com o hash de escola.bairro."
+
+      - name: escola
+        description: "Uma linha por escola (1.558). 1.037 escolas nao aparecem na frequencia."
+        columns:
+          - name: id_escola
+            description: "Hash INT64 da escola. Unico."
+          - name: bairro
+            description: "Bairro da escola em hash (169 distintos). Salt diferente de aluno.bairro."
+
+      - name: turma
+        description: "Na pratica, matricula: um registro por aluno (97.044) com sua turma. Nao tem id_escola."
+        columns:
+          - name: ano
+            description: "Ano mascarado (sempre 2000)."
+          - name: id_turma
+            description: "Hash INT64 da turma (17.678 distintas)."
+          - name: id_aluno
+            description: "Hash do aluno (BYTES)."
+
+      - name: frequencia
+        description: >
+          Grao: aluno x turma x disciplina x periodo (aprox. mensal, fev-jul; quase vazio apos 17/07).
+          2.576 linhas duplicadas no grao. Valores entre 97,3 e 100: a formula
+          (100 - faltas/dias_letivos) nao esta em escala percentual.
+        columns:
+          - name: id_escola
+            description: "Escola da turma. Unica fonte da ligacao turma -> escola."
+          - name: id_aluno
+            description: "Hash do aluno (BYTES)."
+          - name: id_turma
+            description: "Hash INT64 da turma."
+          - name: data_inicio
+            description: "Inicio do periodo (STRING, ano mascarado 2000)."
+          - name: data_fim
+            description: "Fim do periodo (STRING, ano mascarado 2000)."
+          - name: disciplina
+            description: "disciplina_1 a disciplina_4."
+          - name: frequencia
+            description: "100 - faltas/dias_letivos (escala nao percentual; ver eda/)."
+
+      - name: avaliacao
+        description: >
+          Grao: aluno x turma x bimestre (34 duplicadas). Notas de 0 a 10 em formato largo,
+          com ruido de anonimizacao independente por celula. disciplina_3 100% nula.
+        columns:
+          - name: id_aluno
+            description: "Hash do aluno (BYTES)."
+          - name: id_turma
+            description: "Turma em que o aluno foi avaliado (6.952 pares fora da tabela turma)."
+          - name: frequencia
+            description: "Frequencia no bimestre, de 0 a 100 (0,78% nulos). Fonte principal de assiduidade."
+          - name: bimestre
+            description: "1 a 4, armazenado como STRING."
+          - name: disciplina_1
+            description: "Nota de 0 a 10 com ruido (aprox. 16% nulos)."
+          - name: disciplina_2
+            description: "Nota de 0 a 10 com ruido (aprox. 16% nulos)."
+          - name: disciplina_3
+            description: "100% nula nesta extracao."
+          - name: disciplina_4
+            description: "Nota de 0 a 10 com ruido (aprox. 16% nulos)."
