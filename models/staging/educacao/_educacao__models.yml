@@ -10,8 +10,9 @@ models:
           - unique
           - not_null
           - relationships:          # (EDA 1) aluno e turma tem os mesmos pares
-              to: ref('stg_educacao__turma')
-              field: id_aluno
+              arguments:
+                to: ref('stg_educacao__turma')
+                field: id_aluno
       - name: id_turma
         description: "Turma atual do aluno."
         data_tests:
@@ -21,7 +22,8 @@ models:
         data_tests:
           - not_null
           - accepted_values:
-              values: ['0-5', '6-10', '11-14', '15-17', '18+']
+              arguments:
+                values: ['0-5', '6-10', '11-14', '15-17', '18+']
       - name: ordem_faixa_etaria
         description: "1 a 5, para ordenar as faixas. Nulo = faixa nova nao mapeada no CASE."
         data_tests:
@@ -58,8 +60,9 @@ models:
         description: "Ano mascarado (sempre 2000)."
         data_tests:
           - accepted_values:
-              values: [2000]
-              quote: false
+              arguments:
+                values: [2000]
+                quote: false
 
   - name: stg_educacao__frequencia
     description: >
@@ -67,18 +70,21 @@ models:
       O valor bruto nao e percentual; use razao_faltas_por_dia ou a frequencia da avaliacao.
     data_tests:
       - dbt_utils.unique_combination_of_columns:   # (EDA 2) duplicatas no grao
-          combination_of_columns: [id_aluno, id_turma, disciplina, data_inicio]
+          arguments:
+            combination_of_columns: [id_aluno, id_turma, disciplina, data_inicio]
           config:
             severity: warn
       - dbt_utils.expression_is_true:
-          expression: "data_fim >= data_inicio"
+          arguments:
+            expression: "data_fim >= data_inicio"
     columns:
       - name: id_aluno
         data_tests:
           - not_null
           - relationships:
-              to: ref('stg_educacao__aluno')
-              field: id_aluno
+              arguments:
+                to: ref('stg_educacao__aluno')
+                field: id_aluno
       - name: id_turma
         data_tests:
           - not_null
@@ -87,29 +93,34 @@ models:
         data_tests:
           - not_null
           - relationships:          # (EDA 3) toda escola da frequencia existe em escola
-              to: ref('stg_educacao__escola')
-              field: id_escola
+              arguments:
+                to: ref('stg_educacao__escola')
+                field: id_escola
       - name: disciplina
         data_tests:
           - accepted_values:
-              values: ['disciplina_1', 'disciplina_2', 'disciplina_3', 'disciplina_4']
+              arguments:
+                values: ['disciplina_1', 'disciplina_2', 'disciplina_3', 'disciplina_4']
       - name: frequencia_valor_bruto
         description: "100 - faltas/dias_letivos (escala nao percentual)."
         data_tests:
           - dbt_expectations.expect_column_values_to_be_between:
-              min_value: 0
-              max_value: 100
+              arguments:
+                min_value: 0
+                max_value: 100
       - name: razao_faltas_por_dia
         description: "faltas / dias_letivos. Pode passar de 1 se as faltas forem contadas por aula."
         data_tests:
           - dbt_expectations.expect_column_values_to_be_between:
-              min_value: 0
+              arguments:
+                min_value: 0
 
   - name: stg_educacao__avaliacao
     description: "Avaliacao por aluno x turma x bimestre, formato largo. Copias identicas removidas."
     data_tests:
       - dbt_utils.unique_combination_of_columns:   # (EDA 2) duplicatas no grao
-          combination_of_columns: [id_aluno, id_turma, bimestre]
+          arguments:
+            combination_of_columns: [id_aluno, id_turma, bimestre]
           config:
             severity: warn
     columns:
@@ -117,34 +128,40 @@ models:
         data_tests:
           - not_null
           - relationships:
-              to: ref('stg_educacao__aluno')
-              field: id_aluno
+              arguments:
+                to: ref('stg_educacao__aluno')
+                field: id_aluno
       - name: bimestre
         data_tests:
           - not_null
           - accepted_values:
-              values: [1, 2, 3, 4]
-              quote: false
+              arguments:
+                values: [1, 2, 3, 4]
+                quote: false
       - name: frequencia_bimestre_pct
         description: "Frequencia no bimestre (0-100). Fonte principal de assiduidade. 0,78% nulos."
         data_tests:
           - dbt_expectations.expect_column_values_to_be_between:
-              min_value: 0
-              max_value: 100
+              arguments:
+                min_value: 0
+                max_value: 100
       - name: nota_disciplina_1
         data_tests:
           - dbt_expectations.expect_column_values_to_be_between:
-              min_value: 0
-              max_value: 10
+              arguments:
+                min_value: 0
+                max_value: 10
       - name: nota_disciplina_2
         data_tests:
           - dbt_expectations.expect_column_values_to_be_between:
-              min_value: 0
-              max_value: 10
+              arguments:
+                min_value: 0
+                max_value: 10
       - name: nota_disciplina_3
         description: "100% nula nesta extracao."
       - name: nota_disciplina_4
         data_tests:
           - dbt_expectations.expect_column_values_to_be_between:
-              min_value: 0
-              max_value: 10
+              arguments:
+                min_value: 0
+                max_value: 10
