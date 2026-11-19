@@ -1,0 +1,95 @@
+version: 2
+
+models:
+  - name: int_educacao__turma_escola
+    description: >
+      Ponte turma -> escola, derivada da frequencia (a tabela turma nao tem id_escola).
+      Grao: 1 linha por turma.
+    columns:
+      - name: id_turma
+        description: "Turma. Unica: garante que cada turma pertence a uma so escola (EDA 4)."
+        data_tests:
+          - unique
+          - not_null
+      - name: id_escola
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_educacao__escola')
+                field: id_escola
+
+  - name: int_educacao__aluno_escola
+    description: >
+      Escola de referencia do aluno (registro de frequencia mais recente). Grao: 1 linha por aluno.
+      Usada quando a turma avaliada nao tem escola.
+    data_tests:
+      - dbt_utils.equal_rowcount:          # EDA: 100% dos alunos tem frequencia -> todos tem escola
+          arguments:
+            compare_model: ref('stg_educacao__aluno')
+    columns:
+      - name: id_aluno
+        data_tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_educacao__aluno')
+                field: id_aluno
+      - name: id_escola
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_educacao__escola')
+                field: id_escola
+      - name: ultima_data_frequencia
+        description: "Fim do periodo mais recente com frequencia nesta escola."
+      - name: qtd_escolas_distintas
+        description: "Em quantas escolas o aluno teve frequencia no periodo (1 = sempre na mesma)."
+        data_tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 1
+      - name: frequentou_mais_de_uma_escola
+        description: "TRUE se o aluno passou por mais de uma escola (transferencia?)."
+
+  - name: int_educacao__avaliacao_enriquecida
+    description: >
+      Avaliacao bimestral com escola, faixa etaria e flags de politica (limites em vars).
+      Grao: aluno x turma x bimestre, identico ao stg_educacao__avaliacao.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [id_aluno, id_turma, bimestre]
+      - dbt_utils.equal_rowcount:          # os joins nao duplicaram nem perderam linhas
+          arguments:
+            compare_model: ref('stg_educacao__avaliacao')
+    columns:
+      - name: id_escola
+        description: "Escola pela turma avaliada; na falta, a escola de referencia do aluno."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_educacao__escola')
+                field: id_escola
+      - name: origem_escola
+        description: "'turma' = via turma avaliada; 'aluno' = via escola de referencia do aluno."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['turma', 'aluno']
+      - name: faixa_etaria
+        data_tests:
+          - not_null
+      - name: avaliado_fora_da_turma_matricula
+        description: "TRUE se a turma avaliada difere da turma de matricula (troca de turma)."
+      - name: frequencia_bimestre_pct
+        description: "Frequencia do bimestre, 0 a 100."
+      - name: abaixo_minimo_legal
+        description: "Frequencia abaixo de var('limite_frequencia_legal') (padrao 75, LDB art. 24, VI)."
+      - name: em_absenteismo_cronico
+        description: "Frequencia abaixo de var('limite_absenteismo_cronico') (padrao 90 = faltou 10% ou mais)."
