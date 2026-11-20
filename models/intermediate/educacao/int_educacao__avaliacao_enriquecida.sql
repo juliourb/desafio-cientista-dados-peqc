@@ -81,8 +81,8 @@ enriquecido as (
             if(av.nota_disciplina_1 is null, 0, 1) + if(av.nota_disciplina_2 is null, 0, 1)
             + if(av.nota_disciplina_3 is null, 0, 1) + if(av.nota_disciplina_4 is null, 0, 1)
         ) as nota_media_bimestre,
-        -- nota baixa = alguma disciplina abaixo do limite (equivalente ao "failing a course" de
-        -- Balfanz). Nulo se o aluno nao tem nenhuma nota no bimestre.
+        -- nota baixa = alguma disciplina abaixo do limite (informativa; o alerta usa a media).
+        -- Nulo se o aluno nao tem nenhuma nota no bimestre.
         case
             when av.nota_disciplina_1 is null and av.nota_disciplina_2 is null
              and av.nota_disciplina_3 is null and av.nota_disciplina_4 is null then null

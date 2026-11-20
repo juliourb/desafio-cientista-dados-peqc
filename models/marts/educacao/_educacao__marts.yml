@@ -496,3 +496,159 @@ models:
       - name: amostra_pequena
         data_type: bool
         description: "TRUE se o bairro tem menos de var('tamanho_minimo_amostra') alunos: percentual instavel."
+
+  - name: mart_educacao__pendencias_qualidade
+    description: "Fila de pendencias de qualidade para correcao na origem: 1 linha por registro (ou turma) que viola uma regra, com dimensao de qualidade, responsavel e acao sugerida. Fecha o ciclo de retorno (Secretaria -> escolas). Grao: 1 linha por pendencia.\n"
+    config:
+      contract:
+        enforced: true
+    data_tests:
+      # so a pendencia de cadastro (turma sem escola) e por turma; as demais apontam o aluno
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: id_aluno is not null or tipo_pendencia = 'turma_sem_escola'
+    columns:
+      - name: id_pendencia
+        data_type: string
+        description: Chave da pendencia (hash de tipo + chaves do registro).
+        data_tests:
+          # chave da pendencia: evita duplicar a mesma pendencia na fila
+          - unique
+          - not_null
+        constraints:
+          - type: not_null
+      - name: tipo_pendencia
+        data_type: string
+        description: 'Tipo: frequencia_versoes_conflitantes, faltas_acima_dias_letivos, avaliacao_versoes_conflitantes, nota_com_frequencia_zero, avaliado_fora_da_turma_matricula, turma_sem_escola.'
+        data_tests:
+          # tipos fechados: um tipo novo exige regra, responsavel e acao definidos
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - frequencia_versoes_conflitantes
+                  - faltas_acima_dias_letivos
+                  - avaliacao_versoes_conflitantes
+                  - nota_com_frequencia_zero
+                  - avaliado_fora_da_turma_matricula
+                  - turma_sem_escola
+        constraints:
+          - type: not_null
+      - name: dimensao_qualidade
+        data_type: string
+        description: 'Dimensao DAMA: unicidade, validade, consistencia ou completude.'
+        data_tests:
+          # dimensoes de qualidade DAMA usadas no README
+          - accepted_values:
+              arguments:
+                values:
+                  - unicidade
+                  - validade
+                  - consistencia
+                  - completude
+      - name: regra
+        data_type: string
+        description: Regra violada, em linguagem de gestao.
+      - name: responsavel_correcao
+        data_type: string
+        description: escola | secretaria.
+        data_tests:
+          # toda pendencia tem um responsavel pela correcao
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - escola
+                  - secretaria
+      - name: acao_sugerida
+        data_type: string
+        description: O que fazer na origem para corrigir.
+      - name: tabela_origem
+        data_type: string
+        description: Tabela de origem do registro (frequencia ou avaliacao).
+      - name: id_escola
+        data_type: int64
+        description: Escola do registro. Nula em pendencias centrais (turma sem escola) ou sem escola identificada.
+        data_tests:
+          # a escola da pendencia existe no cadastro
+          - relationships:
+              arguments:
+                to: ref('dim_educacao__escola')
+                field: id_escola
+      - name: id_turma
+        data_type: int64
+        description: Turma do registro.
+        data_tests:
+          # toda pendencia aponta ao menos a turma
+          - not_null
+      - name: id_aluno
+        data_type: string
+        description: 'Aluno do registro (na frequencia, identifica a linha da propria tabela: associacao aluno x turma randomizada).'
+      - name: bimestre
+        data_type: int64
+        description: Bimestre (pendencias da avaliacao).
+      - name: disciplina
+        data_type: string
+        description: Disciplina (pendencias da frequencia).
+      - name: data_inicio
+        data_type: date
+        description: Inicio do periodo (pendencias da frequencia).
+      - name: data_fim
+        data_type: date
+        description: Fim do periodo (pendencias da frequencia).
+      - name: detalhe
+        data_type: string
+        description: 'Evidencia da pendencia (ex.: numero de versoes, razao faltas/dia).'
+
+  - name: mart_educacao__pendencias_qualidade_escola
+    description: "Resumo da fila de pendencias por escola, com ranking (1 = mais pendencias). A linha com escola nula reune as pendencias centrais (Secretaria). Grao: 1 linha por escola com pendencia.\n"
+    config:
+      contract:
+        enforced: true
+    data_tests:
+      # o total bate com a soma dos tipos (nenhuma pendencia sem tipo)
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: qtd_pendencias = qtd_frequencia_versoes_conflitantes + qtd_faltas_acima_dias_letivos + qtd_avaliacao_versoes_conflitantes + qtd_nota_com_frequencia_zero + qtd_avaliado_fora_da_turma_matricula + qtd_turma_sem_escola
+    columns:
+      - name: id_escola
+        data_type: int64
+        description: Escola. Nula = pendencias centrais (Secretaria).
+        data_tests:
+          # 1 linha por escola
+          - unique
+      - name: escola_identificada
+        data_type: bool
+        description: FALSE na linha das pendencias centrais.
+      - name: ranking_pendencias
+        data_type: int64
+        description: 1 = escola com mais pendencias (so escolas identificadas).
+        data_tests:
+          # ranking comeca em 1 (nulo so na linha sem escola)
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 1
+      - name: qtd_pendencias
+        data_type: int64
+        description: Total de pendencias da escola.
+      - name: qtd_frequencia_versoes_conflitantes
+        data_type: int64
+        description: Pendencias do tipo frequencia_versoes_conflitantes.
+      - name: qtd_faltas_acima_dias_letivos
+        data_type: int64
+        description: Pendencias do tipo faltas_acima_dias_letivos.
+      - name: qtd_avaliacao_versoes_conflitantes
+        data_type: int64
+        description: Pendencias do tipo avaliacao_versoes_conflitantes.
+      - name: qtd_nota_com_frequencia_zero
+        data_type: int64
+        description: Pendencias do tipo nota_com_frequencia_zero.
+      - name: qtd_avaliado_fora_da_turma_matricula
+        data_type: int64
+        description: Pendencias do tipo avaliado_fora_da_turma_matricula.
+      - name: qtd_turma_sem_escola
+        data_type: int64
+        description: Pendencias do tipo turma_sem_escola.
+      - name: qtd_turmas_com_pendencia
+        data_type: int64
+        description: Turmas distintas com pelo menos uma pendencia.
