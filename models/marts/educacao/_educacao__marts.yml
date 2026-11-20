@@ -144,3 +144,68 @@ models:
         description: "Chance de nota baixa na faixa dividida pela chance na faixa 95-100 (1,0 = igual)."
       - name: amostra_pequena
         description: "TRUE se a faixa tem menos de var('tamanho_minimo_amostra') registros."
+
+  - name: dim_educacao__aluno
+    description: >
+      Dimensao de alunos: faixa etaria, escola de referencia, mobilidade e cobertura da avaliacao.
+      Grao: 1 linha por aluno. Sem dado identificavel (ids e bairro em hash).
+    data_tests:
+      - dbt_utils.equal_rowcount:
+          arguments:
+            compare_model: ref('stg_educacao__aluno')
+    columns:
+      - name: id_aluno
+        data_tests:
+          - unique
+          - not_null
+      - name: id_escola_referencia
+        description: "Escola do registro de frequencia mais recente."
+        data_tests:
+          - not_null
+      - name: possui_avaliacao
+        description: "FALSE para os 28% sem avaliacao (fora do alerta v1)."
+      - name: qtd_bimestres_avaliados
+        description: "0 a 4. Poucos bimestres refletem o recorte da extracao, nao abandono."
+
+  - name: mart_educacao__alerta_precoce_aluno_bimestre
+    description: >
+      Alerta precoce por aluno e bimestre com regras normativas (SME-Rio e LDB): nivel (alto, medio,
+      atencao, sem_alerta), motivos em texto e flag de comunicacao ao Conselho Tutelar.
+      Grao: aluno x bimestre.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [id_aluno, bimestre]
+      # testes de regra de negocio: a classificacao respeita as regras declaradas
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "not (sinal_frequencia_busca_ativa and nivel_alerta != 'alto')"
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "(nivel_alerta = 'sem_alerta') = (not (sinal_frequencia_atendimento or sinal_nota_baixa or sinal_queda_frequencia))"
+    columns:
+      - name: id_aluno
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_educacao__aluno')
+                field: id_aluno
+      - name: id_escola
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_educacao__escola')
+                field: id_escola
+      - name: nivel_alerta
+        description: "alto (busca ativa) | medio (atendimento individualizado) | atencao | sem_alerta."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['alto', 'medio', 'atencao', 'sem_alerta']
+      - name: motivos
+        description: "Sinais que levaram ao nivel, em texto, separados por ';'."
+      - name: comunicar_conselho_tutelar
+        description: "15+ faltas estimadas acumuladas (LDB art. 12, VIII; Circular E/SUBAIR 02/2026)."
+        data_tests:
+          - not_null

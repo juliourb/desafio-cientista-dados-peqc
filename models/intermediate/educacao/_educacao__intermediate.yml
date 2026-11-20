@@ -106,3 +106,39 @@ models:
         description: "Media simples das notas nao nulas do bimestre (com ruido de anonimizacao)."
       - name: tem_nota_baixa
         description: "TRUE se alguma disciplina < var('limite_nota_baixa'). Nulo se nao ha nenhuma nota."
+
+  - name: int_educacao__aluno_bimestre
+    description: >
+      Trajetoria do aluno por bimestre: pior caso quando ha 2 turmas no mesmo bimestre,
+      frequencia e faltas acumuladas, variacao em relacao ao bimestre anterior.
+      Grao: aluno x bimestre.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [id_aluno, bimestre]
+    columns:
+      - name: id_escola
+        description: "Escola do registro com menor frequencia no bimestre (pior caso)."
+        data_tests:
+          - not_null
+      - name: qtd_turmas_no_bimestre
+        description: "1 = normal; 2+ = aluno avaliado em mais de uma turma no bimestre."
+        data_tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 1
+      - name: frequencia_acumulada_pct
+        description: "Media das frequencias bimestrais ate este bimestre (premissa: bimestres de mesmo tamanho)."
+        data_tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+                max_value: 100
+      - name: faltas_estimadas_acumuladas
+        description: "Soma das faltas estimadas ate este bimestre."
+      - name: variacao_frequencia_pp
+        description: "Frequencia do bimestre menos a do bimestre imediatamente anterior (nulo se nao houver)."
+      - name: nota_media_baixa
+        description: "Media do bimestre abaixo de var('limite_nota_baixa'). Usada na regra do alerta."
+      - name: tem_disciplina_abaixo_limite
+        description: "Alguma disciplina abaixo do limite. Informativa: atinge ~30% ate de quem tem 95-100% de frequencia."
