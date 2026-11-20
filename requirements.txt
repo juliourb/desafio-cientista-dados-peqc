@@ -1,0 +1,5 @@
+# Ambiente: Python 3.12 (conda env "rmi")
+# Instalar: pip install -r requirements.txt   |   packages do dbt: dbt deps
+dbt-core==1.12.7
+dbt-bigquery==1.12.3
+duckdb==2.0.0        # EDA (eda/*.py) sobre os Parquets locais
