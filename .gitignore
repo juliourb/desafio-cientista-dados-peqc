@@ -4,3 +4,5 @@ logs/
 data/*
 !data/.gitkeep
 .user.yml
+__pycache__/
+*.pyc
