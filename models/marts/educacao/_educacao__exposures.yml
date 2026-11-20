@@ -1,0 +1,22 @@
+version: 2
+
+exposures:
+  - name: radar_busca_ativa
+    label: Radar da Busca Ativa
+    type: dashboard
+    maturity: low
+    url: https://radar-busca-ativa-rio.streamlit.app
+    description: >
+      Prototipo (prova de conceito) em Streamlit com dados anonimizados: curva de frequencia e
+      desempenho, correlacao por bimestre, alerta por nivel, ranking territorial, fila de
+      pendencias e um simulador de busca ativa com alunos ficticios. Le um snapshot agregado e
+      pseudonimizado dos marts (scripts/exportar_snapshot.py), sem ids nem hashes.
+    owner:
+      name: Júlio
+    depends_on:
+      - ref('mart_educacao__frequencia_desempenho')
+      - ref('mart_educacao__alerta_precoce_aluno_bimestre')
+      - ref('mart_educacao__alerta_bairro_bimestre')
+      - ref('mart_educacao__absenteismo_escola_bimestre')
+      - ref('mart_educacao__pendencias_qualidade_escola')
+      - ref('fct_educacao__avaliacao_bimestre')
