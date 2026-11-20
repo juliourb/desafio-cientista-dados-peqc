@@ -1,0 +1,57 @@
+version: 2
+
+unit_tests:
+  - name: ut_alerta_regras_e_bordas
+    description: >
+      Regras do alerta nos casos de borda: 74,9 x 75 (busca ativa), 84,9 x 85 (atendimento),
+      combinacao frequencia + nota, queda de exatamente 5 p.p., bimestre sem anterior (nulos)
+      e a flag legal das 15 faltas, independente do nivel.
+    model: mart_educacao__alerta_precoce_aluno_bimestre
+    given:
+      - input: ref('int_educacao__aluno_bimestre')
+        rows:
+          - {id_aluno: a, bimestre: 2, frequencia_acumulada_pct: 74.9, nota_media_baixa: false, variacao_frequencia_pp: 0,    faltas_estimadas_acumuladas: 25.1}
+          - {id_aluno: b, bimestre: 2, frequencia_acumulada_pct: 75.0, nota_media_baixa: false, variacao_frequencia_pp: 0,    faltas_estimadas_acumuladas: 25.0}
+          - {id_aluno: c, bimestre: 2, frequencia_acumulada_pct: 84.9, nota_media_baixa: true,  variacao_frequencia_pp: 0,    faltas_estimadas_acumuladas: 15.1}
+          - {id_aluno: d, bimestre: 2, frequencia_acumulada_pct: 85.0, nota_media_baixa: false, variacao_frequencia_pp: -5.0, faltas_estimadas_acumuladas: 15.0}
+          - {id_aluno: e, bimestre: 2, frequencia_acumulada_pct: 85.0, nota_media_baixa: false, variacao_frequencia_pp: -4.9, faltas_estimadas_acumuladas: 14.9}
+          - {id_aluno: f, bimestre: 1, frequencia_acumulada_pct: 95.0, nota_media_baixa: null,  variacao_frequencia_pp: null, faltas_estimadas_acumuladas: 2.5}
+          - {id_aluno: g, bimestre: 2, frequencia_acumulada_pct: 92.0, nota_media_baixa: true,  variacao_frequencia_pp: 0,    faltas_estimadas_acumuladas: 8.0}
+      - input: ref('dim_educacao__aluno')
+        rows:
+          - {id_aluno: a}
+          - {id_aluno: b}
+          - {id_aluno: c}
+          - {id_aluno: d}
+          - {id_aluno: e}
+          - {id_aluno: f}
+          - {id_aluno: g}
+    expect:
+      rows:
+        - {id_aluno: a, nivel_alerta: alto,       comunicar_conselho_tutelar: true}   # 74,9 < 75
+        - {id_aluno: b, nivel_alerta: medio,      comunicar_conselho_tutelar: true}   # 75 nao e < 75; e < 85
+        - {id_aluno: c, nivel_alerta: alto,       comunicar_conselho_tutelar: true}   # < 85 E media < 5
+        - {id_aluno: d, nivel_alerta: atencao,    comunicar_conselho_tutelar: true}   # queda de exatamente 5; 15 faltas
+        - {id_aluno: e, nivel_alerta: sem_alerta, comunicar_conselho_tutelar: false}  # queda 4,9; 14,9 faltas
+        - {id_aluno: f, nivel_alerta: sem_alerta, comunicar_conselho_tutelar: false}  # 1o bimestre: nulos nao disparam
+        - {id_aluno: g, nivel_alerta: medio,      comunicar_conselho_tutelar: false}  # so a nota
+
+  - name: ut_aluno_bimestre_pior_caso_acumulado_e_queda
+    description: >
+      Trajetoria: 2 turmas no mesmo bimestre viram 1 linha pelo pior caso; frequencia acumulada
+      e media dos bimestres; a variacao so compara com o bimestre imediatamente anterior.
+    model: int_educacao__aluno_bimestre
+    given:
+      - input: ref('int_educacao__avaliacao_enriquecida')
+        rows:
+          - {id_aluno: x, id_turma: 1, bimestre: 1, id_escola: 10, frequencia_bimestre_pct: 90.0, faltas_estimadas_bimestre: 5.0}
+          - {id_aluno: x, id_turma: 1, bimestre: 2, id_escola: 10, frequencia_bimestre_pct: 82.0, faltas_estimadas_bimestre: 9.0}
+          - {id_aluno: x, id_turma: 2, bimestre: 2, id_escola: 20, frequencia_bimestre_pct: 80.0, faltas_estimadas_bimestre: 10.0}
+          - {id_aluno: y, id_turma: 3, bimestre: 1, id_escola: 30, frequencia_bimestre_pct: 90.0, faltas_estimadas_bimestre: 5.0}
+          - {id_aluno: y, id_turma: 3, bimestre: 3, id_escola: 30, frequencia_bimestre_pct: 70.0, faltas_estimadas_bimestre: 15.0}
+    expect:
+      rows:
+        - {id_aluno: x, bimestre: 1, id_escola: 10, qtd_turmas_no_bimestre: 1, frequencia_acumulada_pct: 90.0, faltas_estimadas_acumuladas: 5.0,  variacao_frequencia_pp: null}
+        - {id_aluno: x, bimestre: 2, id_escola: 20, qtd_turmas_no_bimestre: 2, frequencia_acumulada_pct: 85.0, faltas_estimadas_acumuladas: 15.0, variacao_frequencia_pp: -10.0}
+        - {id_aluno: y, bimestre: 1, id_escola: 30, qtd_turmas_no_bimestre: 1, frequencia_acumulada_pct: 90.0, faltas_estimadas_acumuladas: 5.0,  variacao_frequencia_pp: null}
+        - {id_aluno: y, bimestre: 3, id_escola: 30, qtd_turmas_no_bimestre: 1, frequencia_acumulada_pct: 80.0, faltas_estimadas_acumuladas: 20.0, variacao_frequencia_pp: null}
