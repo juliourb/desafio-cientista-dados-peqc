@@ -109,3 +109,38 @@ models:
           - not_null
       - name: pct_registros_escola_via_aluno
         description: "% dos registros ligados a escola pela rota alternativa (aluno), e nao pela turma."
+  - name: mart_educacao__frequencia_desempenho
+    description: >
+      Curva frequencia x desempenho: para cada faixa de 5 p.p. de frequencia bimestral, a nota media
+      e o % de registros com nota baixa, separados por grupo etario (15-17 x demais).
+      Serve para validar localmente os limiares do alerta precoce. Associacao, nao causa.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [grupo_etario, faixa_frequencia_inicio]
+    columns:
+      - name: grupo_etario
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['15-17', 'demais']
+      - name: faixa_frequencia_inicio
+        description: "Inicio da faixa de 5 p.p. (0, 5, ..., 95). A faixa 95 inclui 100."
+        data_tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+                max_value: 95
+      - name: qtd_registros
+        description: "Registros aluno x turma x bimestre na faixa."
+      - name: pct_registros_nota_baixa
+        description: "% de registros com alguma disciplina abaixo de var('limite_nota_baixa')."
+        data_tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+                max_value: 100
+      - name: risco_relativo_nota_baixa
+        description: "Chance de nota baixa na faixa dividida pela chance na faixa 95-100 (1,0 = igual)."
+      - name: amostra_pequena
+        description: "TRUE se a faixa tem menos de var('tamanho_minimo_amostra') registros."

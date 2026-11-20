@@ -55,10 +55,37 @@ enriquecido as (
         av.frequencia_bimestre_pct < {{ var('limite_frequencia_legal') }}    as abaixo_minimo_legal,
         av.frequencia_bimestre_pct < {{ var('limite_absenteismo_cronico') }} as em_absenteismo_cronico,
 
+        -- faltas estimadas no bimestre: (100 - frequencia)% x dias letivos do bimestre.
+        -- Premissa: 200 dias letivos/ano (LDB art. 24, I) / 4 = 50 por bimestre (var).
+        -- Serve para a regra das 15 faltas (LDB art. 12, VIII; Circular E/SUBAIR 02/2026).
+        round((100 - av.frequencia_bimestre_pct) / 100 * {{ var('dias_letivos_bimestre') }}, 1)
+            as faltas_estimadas_bimestre,
+
         av.nota_disciplina_1,
         av.nota_disciplina_2,
         av.nota_disciplina_3,
         av.nota_disciplina_4,
+
+        -- desempenho no bimestre (disciplina_3 e 100% nula; nulos ficam fora da media)
+        (if(av.nota_disciplina_1 is null, 0, 1) + if(av.nota_disciplina_2 is null, 0, 1)
+         + if(av.nota_disciplina_3 is null, 0, 1) + if(av.nota_disciplina_4 is null, 0, 1))
+            as qtd_disciplinas_com_nota,
+        safe_divide(
+            coalesce(av.nota_disciplina_1, 0) + coalesce(av.nota_disciplina_2, 0)
+            + coalesce(av.nota_disciplina_3, 0) + coalesce(av.nota_disciplina_4, 0),
+            if(av.nota_disciplina_1 is null, 0, 1) + if(av.nota_disciplina_2 is null, 0, 1)
+            + if(av.nota_disciplina_3 is null, 0, 1) + if(av.nota_disciplina_4 is null, 0, 1)
+        ) as nota_media_bimestre,
+        -- nota baixa = alguma disciplina abaixo do limite (equivalente ao "failing a course" de
+        -- Balfanz). Nulo se o aluno nao tem nenhuma nota no bimestre.
+        case
+            when av.nota_disciplina_1 is null and av.nota_disciplina_2 is null
+             and av.nota_disciplina_3 is null and av.nota_disciplina_4 is null then null
+            else coalesce(av.nota_disciplina_1 < {{ var('limite_nota_baixa') }}, false)
+              or coalesce(av.nota_disciplina_2 < {{ var('limite_nota_baixa') }}, false)
+              or coalesce(av.nota_disciplina_3 < {{ var('limite_nota_baixa') }}, false)
+              or coalesce(av.nota_disciplina_4 < {{ var('limite_nota_baixa') }}, false)
+        end as tem_nota_baixa,
 
         -- rastreabilidade da qualidade (vem do staging)
         av.qtd_versoes_distintas,

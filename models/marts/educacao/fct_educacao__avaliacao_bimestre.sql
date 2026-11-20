@@ -30,10 +30,14 @@ final as (
         frequencia_bimestre_pct,
         abaixo_minimo_legal,
         em_absenteismo_cronico,
+        faltas_estimadas_bimestre,
         nota_disciplina_1,
         nota_disciplina_2,
         nota_disciplina_3,
         nota_disciplina_4,
+        qtd_disciplinas_com_nota,
+        nota_media_bimestre,
+        tem_nota_baixa,
 
         -- qualidade
         registro_conflitante

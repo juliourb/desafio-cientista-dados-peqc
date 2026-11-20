@@ -93,3 +93,16 @@ models:
         description: "Frequencia abaixo de var('limite_frequencia_legal') (padrao 75, LDB art. 24, VI)."
       - name: em_absenteismo_cronico
         description: "Frequencia abaixo de var('limite_absenteismo_cronico') (padrao 90 = faltou 10% ou mais)."
+      - name: faltas_estimadas_bimestre
+        description: "(100 - frequencia)% x var('dias_letivos_bimestre'). Estimativa: os dados nao trazem a contagem de faltas."
+        data_tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+                max_value: 50     # = var('dias_letivos_bimestre')
+      - name: qtd_disciplinas_com_nota
+        description: "Quantas disciplinas tem nota no bimestre (0 a 4; disciplina_3 e sempre nula)."
+      - name: nota_media_bimestre
+        description: "Media simples das notas nao nulas do bimestre (com ruido de anonimizacao)."
+      - name: tem_nota_baixa
+        description: "TRUE se alguma disciplina < var('limite_nota_baixa'). Nulo se nao ha nenhuma nota."

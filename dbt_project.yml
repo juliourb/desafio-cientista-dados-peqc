@@ -24,3 +24,8 @@ vars:
   limite_frequencia_legal: 75      # LDB (Lei 9.394/96), art. 24, VI: minimo de 75% de frequencia
   limite_absenteismo_cronico: 90   # absenteismo cronico: faltar 10% ou mais das aulas
   tamanho_minimo_amostra: 10       # abaixo disso a taxa e instavel (1 aluno em 3 = 33%)
+  limite_frequencia_atendimento: 85  # SME-Rio: atendimento individualizado abaixo de 85% acumulada
+  limite_nota_baixa: 5               # media de aprovacao (confirmar na Res. SME 378/2023)
+  dias_letivos_bimestre: 50          # LDB: 200 dias letivos/ano / 4 bimestres
+  limite_faltas_conselho_tutelar: 15 # LDB art. 12, VIII (Lei 13.803/2019); Circular E/SUBAIR 02/2026
+  limite_queda_frequencia_pp: 5      # queda entre bimestres que gera "atencao"
