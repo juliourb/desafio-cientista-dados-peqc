@@ -254,7 +254,7 @@ models:
 
   - name: dim_educacao__aluno
     description: >
-      Dimensao de alunos: faixa etaria, escola de referencia, mobilidade e cobertura da avaliacao.
+      Dimensao de alunos: faixa etaria, bairro de residencia (hash), turma e escola de matricula e cobertura da avaliacao.
       Grao: 1 linha por aluno. Sem dado identificavel (ids e bairro em hash).
     config:
       contract:

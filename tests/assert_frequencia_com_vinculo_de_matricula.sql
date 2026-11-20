@@ -6,7 +6,8 @@
 -- Resultado nesta extracao: 105.922 pares (aluno, turma, escola) sem vinculo. O volume indica
 -- INCONSISTENCIA DE CHAVE de turma entre os sistemas (mesmo padrao da EDA: 7.792 turmas da
 -- avaliacao fora da frequencia), e nao lancamentos indevidos em massa. Por isso o pipeline
--- liga aluno -> escola por duas rotas (origem_escola) e nao depende so da turma.
+-- atribui escola so via turma (dim_educacao__turma) e nunca pela relacao aluno -> escola
+-- da frequencia, que esta randomizada (eda/saida_05.txt).
 -- Severidade warn: achado estrutural documentado no README.
 {{ config(severity='warn') }}
 
