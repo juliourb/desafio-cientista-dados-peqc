@@ -1,0 +1,57 @@
+{
+  "gerado_em_utc": "2026-11-20 22:09:50",
+  "commit": "74a1cebda3c82334b2f9248b9e2e5da3b2fc5f6c",
+  "projeto": "desafio-rmi-515002",
+  "dataset": "dbt_dev_marts",
+  "limites": {
+    "limite_frequencia_legal": 75,
+    "limite_absenteismo_cronico": 90,
+    "tamanho_minimo_amostra": 10,
+    "limite_frequencia_atendimento": 85,
+    "limite_nota_baixa": 5,
+    "dias_letivos_bimestre": 50,
+    "limite_faltas_conselho_tutelar": 15,
+    "limite_queda_frequencia_pp": 5
+  },
+  "linhas": {
+    "curva": 40,
+    "alerta_resumo": 15,
+    "absenteismo_escola": 1697,
+    "alerta_bairro": 3168,
+    "pendencias_escola": 422,
+    "correlacao": 15,
+    "alunos_ficticios": 480
+  },
+  "paridade": {
+    "mart": {
+      "linhas_comparadas": 221106,
+      "classificacao_nivel_pct": 100.0,
+      "classificacao_conselho_tutelar_pct": 100.0,
+      "classificacao_sinais_pct": 100.0,
+      "classificacao_motivos_pct": 100.0,
+      "acumulado_frequencia_nao_empate_pct": 100.0,
+      "acumulado_frequencia_empate_pct": 100.0,
+      "acumulado_frequencia_detalhe": {
+        "criterio": "Linha fora de empate (media bruta a mais de 1e-9 de um valor .x5): concordancia com o dbt dentro de 0,01 em 100% das linhas. Linha em empate (a ate 1e-9 de .x5): diferenca de ate 0,1, em 100% das linhas (a ordem de soma do AVG em ponto flutuante nao e deterministica). Nenhuma divergencia pode ficar em lados opostos de 75 ou 85.",
+        "n_linhas": 221106,
+        "n_empates": 11003,
+        "n_divergentes_em_empate": 1219,
+        "n_divergentes_fora_de_empate": 0,
+        "n_cruzam_limite": 0
+      },
+      "acumulado_faltas_pct": 100.0,
+      "acumulado_variacao_pct": 100.0
+    },
+    "unit_tests": {
+      "casos": 11,
+      "ok": 11,
+      "concordancia_pct": 100.0
+    }
+  },
+  "alunos_ficticios": {
+    "semente": 20261121,
+    "n_alunos": 120,
+    "deriva_media": 1.0,
+    "deriva_dp": 4
+  }
+}
