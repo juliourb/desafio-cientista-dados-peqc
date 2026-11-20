@@ -5,19 +5,29 @@ models:
     description: >
       Dimensao de escolas: cadastro completo (1.558), com flag de quais tem alunos nesta extracao.
       Grao: 1 linha por escola.
+    config:
+      contract:
+        enforced: true
     columns:
       - name: id_escola
+        data_type: int64
         description: "Chave da escola."
         data_tests:
           - unique
           - not_null
+        constraints:
+          - type: not_null
       - name: bairro_escola_hash
+        data_type: int64
         description: "Bairro da escola anonimizado."
       - name: qtd_turmas
+        data_type: int64
         description: "Turmas da escola (via frequencia)."
       - name: qtd_alunos_referencia
+        data_type: int64
         description: "Alunos cuja escola de referencia (frequencia mais recente) e esta."
       - name: possui_alunos_na_extracao
+        data_type: bool
         description: "FALSE = escola so existe no cadastro (sem alunos nesta extracao)."
         data_tests:
           - not_null
@@ -25,28 +35,51 @@ models:
   - name: fct_educacao__avaliacao_bimestre
     description: >
       Fato da avaliacao bimestral: frequencia, notas e flags de politica por aluno x turma x bimestre.
+    config:
+      contract:
+        enforced: true
     data_tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:
             combination_of_columns: [id_aluno, id_turma, bimestre]
     columns:
       - name: id_aluno
+        data_type: string
         data_tests:
           - not_null
+        constraints:
+          - type: not_null
+      - name: id_turma
+        data_type: int64
       - name: id_escola
+        data_type: int64
         data_tests:
           - not_null
           - relationships:
               arguments:
                 to: ref('dim_educacao__escola')
                 field: id_escola
+        constraints:
+          - type: not_null
       - name: bimestre
+        data_type: int64
         data_tests:
           - accepted_values:
               arguments:
                 values: [1, 2, 3, 4]
                 quote: false
+        constraints:
+          - type: not_null
+      - name: origem_escola
+        data_type: string
+      - name: faixa_etaria
+        data_type: string
+      - name: ordem_faixa_etaria
+        data_type: int64
+      - name: avaliado_fora_da_turma_matricula
+        data_type: bool
       - name: frequencia_bimestre_pct
+        data_type: float64
         description: "Frequencia do bimestre, 0 a 100 (0,8% nulos na origem)."
         data_tests:
           - dbt_expectations.expect_column_values_to_be_between:
@@ -54,49 +87,91 @@ models:
                 min_value: 0
                 max_value: 100
 
+      - name: abaixo_minimo_legal
+        data_type: bool
+      - name: em_absenteismo_cronico
+        data_type: bool
+      - name: faltas_estimadas_bimestre
+        data_type: float64
+      - name: nota_disciplina_1
+        data_type: float64
+      - name: nota_disciplina_2
+        data_type: float64
+      - name: nota_disciplina_3
+        data_type: float64
+      - name: nota_disciplina_4
+        data_type: float64
+      - name: qtd_disciplinas_com_nota
+        data_type: int64
+      - name: nota_media_bimestre
+        data_type: float64
+      - name: tem_nota_baixa
+        data_type: bool
+      - name: registro_conflitante
+        data_type: bool
   - name: mart_educacao__absenteismo_escola_bimestre
     description: >
       Absenteismo por escola e bimestre, para priorizar busca ativa e acompanhamento.
       Base: avaliacao bimestral (cobre sobretudo alunos de 15-17; ver pct_alunos_15_17).
       Grao: escola x bimestre.
+    config:
+      contract:
+        enforced: true
     data_tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:
             combination_of_columns: [id_escola, bimestre]
     columns:
       - name: id_escola
+        data_type: int64
         data_tests:
           - not_null
           - relationships:
               arguments:
                 to: ref('dim_educacao__escola')
                 field: id_escola
+        constraints:
+          - type: not_null
       - name: bimestre
+        data_type: int64
         data_tests:
           - not_null
+        constraints:
+          - type: not_null
+      - name: bairro_escola_hash
+        data_type: int64
       - name: qtd_alunos_avaliados
+        data_type: int64
         description: "Tamanho da base da linha. Ler sempre junto com as taxas."
         data_tests:
           - dbt_expectations.expect_column_values_to_be_between:
               arguments:
                 min_value: 1
       - name: pct_alunos_15_17
+        data_type: float64
         description: "Composicao da base: % de alunos de 15-17 anos."
       - name: frequencia_media_pct
+        data_type: float64
         description: "Media simples da frequencia bimestral dos registros."
         data_tests:
           - dbt_expectations.expect_column_values_to_be_between:
               arguments:
                 min_value: 0
                 max_value: 100
+      - name: qtd_alunos_abaixo_minimo_legal
+        data_type: int64
       - name: pct_alunos_abaixo_minimo_legal
+        data_type: float64
         description: "% de alunos abaixo de var('limite_frequencia_legal') (75%, LDB)."
         data_tests:
           - dbt_expectations.expect_column_values_to_be_between:
               arguments:
                 min_value: 0
                 max_value: 100
+      - name: qtd_alunos_absenteismo_cronico
+        data_type: int64
       - name: pct_alunos_absenteismo_cronico
+        data_type: float64
         description: "% de alunos abaixo de var('limite_absenteismo_cronico') (90%)."
         data_tests:
           - dbt_expectations.expect_column_values_to_be_between:
@@ -104,36 +179,57 @@ models:
                 min_value: 0
                 max_value: 100
       - name: amostra_pequena
+        data_type: bool
         description: "TRUE se qtd_alunos_avaliados < var('tamanho_minimo_amostra'): taxa instavel."
         data_tests:
           - not_null
       - name: pct_registros_escola_via_aluno
+        data_type: float64
         description: "% dos registros ligados a escola pela rota alternativa (aluno), e nao pela turma."
   - name: mart_educacao__frequencia_desempenho
     description: >
       Curva frequencia x desempenho: para cada faixa de 5 p.p. de frequencia bimestral, a nota media
       e o % de registros com nota baixa, separados por grupo etario (15-17 x demais).
       Serve para validar localmente os limiares do alerta precoce. Associacao, nao causa.
+    config:
+      contract:
+        enforced: true
     data_tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:
             combination_of_columns: [grupo_etario, faixa_frequencia_inicio]
     columns:
       - name: grupo_etario
+        data_type: string
         data_tests:
           - accepted_values:
               arguments:
                 values: ['15-17', 'demais']
+        constraints:
+          - type: not_null
       - name: faixa_frequencia_inicio
+        data_type: int64
         description: "Inicio da faixa de 5 p.p. (0, 5, ..., 95). A faixa 95 inclui 100."
         data_tests:
           - dbt_expectations.expect_column_values_to_be_between:
               arguments:
                 min_value: 0
                 max_value: 95
+        constraints:
+          - type: not_null
+      - name: faixa_frequencia_fim
+        data_type: int64
       - name: qtd_registros
+        data_type: int64
         description: "Registros aluno x turma x bimestre na faixa."
+      - name: qtd_alunos
+        data_type: int64
+      - name: nota_media
+        data_type: float64
+      - name: qtd_registros_nota_baixa
+        data_type: int64
       - name: pct_registros_nota_baixa
+        data_type: float64
         description: "% de registros com alguma disciplina abaixo de var('limite_nota_baixa')."
         data_tests:
           - dbt_expectations.expect_column_values_to_be_between:
@@ -141,37 +237,63 @@ models:
                 min_value: 0
                 max_value: 100
       - name: risco_relativo_nota_baixa
+        data_type: float64
         description: "Chance de nota baixa na faixa dividida pela chance na faixa 95-100 (1,0 = igual)."
       - name: amostra_pequena
+        data_type: bool
         description: "TRUE se a faixa tem menos de var('tamanho_minimo_amostra') registros."
-
   - name: dim_educacao__aluno
     description: >
       Dimensao de alunos: faixa etaria, escola de referencia, mobilidade e cobertura da avaliacao.
       Grao: 1 linha por aluno. Sem dado identificavel (ids e bairro em hash).
+    config:
+      contract:
+        enforced: true
     data_tests:
       - dbt_utils.equal_rowcount:
           arguments:
             compare_model: ref('stg_educacao__aluno')
     columns:
       - name: id_aluno
+        data_type: string
         data_tests:
           - unique
           - not_null
+        constraints:
+          - type: not_null
+      - name: faixa_etaria
+        data_type: string
+      - name: ordem_faixa_etaria
+        data_type: int64
+      - name: bairro_residencia_hash
+        data_type: int64
       - name: id_escola_referencia
+        data_type: int64
         description: "Escola do registro de frequencia mais recente."
         data_tests:
           - not_null
+      - name: qtd_escolas_distintas
+        data_type: int64
+      - name: frequentou_mais_de_uma_escola
+        data_type: bool
       - name: possui_avaliacao
+        data_type: bool
         description: "FALSE para os 28% sem avaliacao (fora do alerta v1)."
       - name: qtd_bimestres_avaliados
+        data_type: int64
         description: "0 a 4. Poucos bimestres refletem o recorte da extracao, nao abandono."
-
+      - name: primeiro_bimestre_avaliado
+        data_type: int64
+      - name: ultimo_bimestre_avaliado
+        data_type: int64
   - name: mart_educacao__alerta_precoce_aluno_bimestre
     description: >
       Alerta precoce por aluno e bimestre com regras normativas (SME-Rio e LDB): nivel (alto, medio,
       atencao, sem_alerta), motivos em texto e flag de comunicacao ao Conselho Tutelar.
       Grao: aluno x bimestre.
+    config:
+      contract:
+        enforced: true
     data_tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:
@@ -185,27 +307,74 @@ models:
             expression: "(nivel_alerta = 'sem_alerta') = (not (sinal_frequencia_atendimento or sinal_nota_baixa or sinal_queda_frequencia))"
     columns:
       - name: id_aluno
+        data_type: string
         data_tests:
           - relationships:
               arguments:
                 to: ref('dim_educacao__aluno')
                 field: id_aluno
+        constraints:
+          - type: not_null
+      - name: bimestre
+        data_type: int64
+        constraints:
+          - type: not_null
       - name: id_escola
+        data_type: int64
         data_tests:
           - relationships:
               arguments:
                 to: ref('dim_educacao__escola')
                 field: id_escola
+      - name: faixa_etaria
+        data_type: string
       - name: nivel_alerta
+        data_type: string
         description: "alto (busca ativa) | medio (atendimento individualizado) | atencao | sem_alerta."
         data_tests:
           - not_null
           - accepted_values:
               arguments:
                 values: ['alto', 'medio', 'atencao', 'sem_alerta']
+        constraints:
+          - type: not_null
+      - name: ordem_nivel_alerta
+        data_type: int64
       - name: motivos
+        data_type: string
         description: "Sinais que levaram ao nivel, em texto, separados por ';'."
       - name: comunicar_conselho_tutelar
+        data_type: bool
         description: "15+ faltas estimadas acumuladas (LDB art. 12, VIII; Circular E/SUBAIR 02/2026)."
         data_tests:
           - not_null
+      - name: sinal_frequencia_busca_ativa
+        data_type: bool
+      - name: sinal_frequencia_atendimento
+        data_type: bool
+      - name: sinal_nota_baixa
+        data_type: bool
+      - name: sinal_queda_frequencia
+        data_type: bool
+      - name: frequencia_bimestre_pct
+        data_type: float64
+      - name: frequencia_acumulada_pct
+        data_type: float64
+      - name: variacao_frequencia_pp
+        data_type: float64
+      - name: faltas_estimadas_acumuladas
+        data_type: float64
+      - name: nota_media_bimestre
+        data_type: float64
+      - name: tem_disciplina_abaixo_limite
+        data_type: bool
+      - name: frequentou_mais_de_uma_escola
+        data_type: bool
+      - name: qtd_turmas_no_bimestre
+        data_type: int64
+      - name: qtd_bimestres_ate_aqui
+        data_type: int64
+      - name: qtd_bimestres_avaliados
+        data_type: int64
+      - name: registro_conflitante
+        data_type: bool
