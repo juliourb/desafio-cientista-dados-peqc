@@ -1,6 +1,7 @@
 version: 2
 
 models:
+
   - name: dim_educacao__escola
     description: >
       Dimensao de escolas: cadastro completo (1.558), com flag de quais tem alunos nesta extracao.
@@ -23,9 +24,9 @@ models:
       - name: qtd_turmas
         data_type: int64
         description: "Turmas da escola (via frequencia)."
-      - name: qtd_alunos_referencia
+      - name: qtd_alunos_matriculados
         data_type: int64
-        description: "Alunos cuja escola de referencia (frequencia mais recente) e esta."
+        description: "Alunos cuja turma de matricula pertence a esta escola."
       - name: possui_alunos_na_extracao
         data_type: bool
         description: "FALSE = escola so existe no cadastro (sem alunos nesta extracao)."
@@ -51,16 +52,24 @@ models:
           - type: not_null
       - name: id_turma
         data_type: int64
+        data_tests:
+          # toda turma do fato existe na dimensao de turmas
+          - relationships:
+              arguments:
+                to: ref('dim_educacao__turma')
+                field: id_turma
       - name: id_escola
         data_type: int64
         data_tests:
-          - not_null
+          # cobertura minima de escola: hoje 81,3%; abaixo de 80% indica perda de chave turma -> escola
+          - dbt_utils.not_null_proportion:
+              arguments:
+                at_least: 0.8
           - relationships:
               arguments:
                 to: ref('dim_educacao__escola')
                 field: id_escola
-        constraints:
-          - type: not_null
+        description: Escola via turma (avaliada ou de matricula). Nula = nao identificada com seguranca.
       - name: bimestre
         data_type: int64
         data_tests:
@@ -109,11 +118,10 @@ models:
         data_type: bool
       - name: registro_conflitante
         data_type: bool
+
   - name: mart_educacao__absenteismo_escola_bimestre
     description: >
-      Absenteismo por escola e bimestre, para priorizar busca ativa e acompanhamento.
-      Base: avaliacao bimestral (cobre sobretudo alunos de 15-17; ver pct_alunos_15_17).
-      Grao: escola x bimestre.
+      Absenteismo por escola e bimestre, para priorizar busca ativa e acompanhamento. Base: avaliacao bimestral (cobre sobretudo alunos de 15-17; ver pct_alunos_15_17). Grao: escola x bimestre. Exclui registros com escola nao identificada (18,7%).
     config:
       contract:
         enforced: true
@@ -183,9 +191,10 @@ models:
         description: "TRUE se qtd_alunos_avaliados < var('tamanho_minimo_amostra'): taxa instavel."
         data_tests:
           - not_null
-      - name: pct_registros_escola_via_aluno
+      - name: pct_registros_via_turma_matricula
         data_type: float64
-        description: "% dos registros ligados a escola pela rota alternativa (aluno), e nao pela turma."
+        description: "% dos registros ligados a escola pela turma de matricula (e nao pela turma avaliada)."
+
   - name: mart_educacao__frequencia_desempenho
     description: >
       Curva frequencia x desempenho: para cada faixa de 5 p.p. de frequencia bimestral, a nota media
@@ -242,6 +251,7 @@ models:
       - name: amostra_pequena
         data_type: bool
         description: "TRUE se a faixa tem menos de var('tamanho_minimo_amostra') registros."
+
   - name: dim_educacao__aluno
     description: >
       Dimensao de alunos: faixa etaria, escola de referencia, mobilidade e cobertura da avaliacao.
@@ -267,15 +277,12 @@ models:
         data_type: int64
       - name: bairro_residencia_hash
         data_type: int64
-      - name: id_escola_referencia
+      - name: id_turma_matricula
         data_type: int64
-        description: "Escola do registro de frequencia mais recente."
-        data_tests:
-          - not_null
-      - name: qtd_escolas_distintas
+        description: Turma de matricula do aluno.
+      - name: id_escola_matricula
         data_type: int64
-      - name: frequentou_mais_de_uma_escola
-        data_type: bool
+        description: "Escola da turma de matricula. Nula = turma sem escola conhecida."
       - name: possui_avaliacao
         data_type: bool
         description: "FALSE para os 28% sem avaliacao (fora do alerta v1)."
@@ -286,6 +293,36 @@ models:
         data_type: int64
       - name: ultimo_bimestre_avaliado
         data_type: int64
+
+  - name: dim_educacao__turma
+    description: "Dimensao de turmas e ponte oficial turma -> escola: turmas de matricula, avaliacao e do catalogo da frequencia. Grao: 1 linha por turma. Escola nula = turma fora do catalogo.\n"
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: id_turma
+        data_type: int64
+        description: Chave da turma.
+        data_tests:
+          - unique
+          - not_null
+        constraints:
+          - type: not_null
+      - name: id_escola
+        data_type: int64
+        description: Escola da turma (catalogo da frequencia). Nula = nao identificada.
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_educacao__escola')
+                field: id_escola
+      - name: escola_identificada
+        data_type: bool
+        description: TRUE se a turma tem escola conhecida.
+      - name: qtd_alunos_matriculados
+        data_type: int64
+        description: Alunos com matricula nesta turma.
+
   - name: mart_educacao__alerta_precoce_aluno_bimestre
     description: >
       Alerta precoce por aluno e bimestre com regras normativas (SME-Rio e LDB): nivel (alto, medio,
@@ -326,6 +363,17 @@ models:
               arguments:
                 to: ref('dim_educacao__escola')
                 field: id_escola
+        description: Escola via turma. Nula = nao identificada com seguranca (o aluno continua na lista).
+      - name: escola_identificada
+        data_type: bool
+        description: FALSE = escola nao identificada; a Secretaria resolve com a chave real.
+        data_tests:
+          - not_null
+        constraints:
+          - type: not_null
+      - name: bairro_residencia_hash
+        data_type: int64
+        description: Bairro de residencia (hash). Organiza a busca ativa por territorio.
       - name: faixa_etaria
         data_type: string
       - name: nivel_alerta
@@ -368,8 +416,6 @@ models:
         data_type: float64
       - name: tem_disciplina_abaixo_limite
         data_type: bool
-      - name: frequentou_mais_de_uma_escola
-        data_type: bool
       - name: qtd_turmas_no_bimestre
         data_type: int64
       - name: qtd_bimestres_ate_aqui
@@ -378,3 +424,75 @@ models:
         data_type: int64
       - name: registro_conflitante
         data_type: bool
+
+  - name: mart_educacao__alerta_bairro_bimestre
+    description: "Alerta precoce por bairro de residencia (hash) e bimestre, com ranking de prioridade (1 = mais alunos em 'alto'). Consumidor: equipes de busca ativa e parceiros territoriais. Grao: bairro x bimestre.\n"
+    config:
+      contract:
+        enforced: true
+    data_tests:
+      # grao garantido: 1 linha por bairro x bimestre
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - bairro_residencia_hash
+              - bimestre
+      # niveis sao exclusivos: a soma nao pode passar do total de alunos
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: qtd_alunos_alto + qtd_alunos_medio + qtd_alunos_atencao <= qtd_alunos_avaliados
+    columns:
+      - name: bairro_residencia_hash
+        data_type: int64
+        description: Bairro de residencia (hash). Nulo = bairro nao informado no cadastro (0,07%).
+      - name: bimestre
+        data_type: int64
+        description: Bimestre (1 a 4).
+        data_tests:
+          - not_null
+        constraints:
+          - type: not_null
+      - name: bairro_informado
+        data_type: bool
+        description: FALSE para a linha de alunos sem bairro no cadastro.
+      - name: ranking_prioridade
+        data_type: int64
+        description: "Posicao do bairro no bimestre: 1 = mais alunos em 'alto' (desempate: 'medio', depois 'atencao')."
+        data_tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 1
+        constraints:
+          - type: not_null
+      - name: qtd_alunos_avaliados
+        data_type: int64
+        description: Alunos avaliados do bairro no bimestre.
+      - name: qtd_alunos_alto
+        data_type: int64
+        description: Alunos em nivel 'alto' (busca ativa).
+      - name: qtd_alunos_medio
+        data_type: int64
+        description: Alunos em nivel 'medio' (atendimento individualizado).
+      - name: qtd_alunos_atencao
+        data_type: int64
+        description: Alunos em nivel 'atencao' (queda de frequencia).
+      - name: pct_alunos_alto
+        data_type: float64
+        description: "% de alunos do bairro em 'alto'."
+        data_tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+                max_value: 100
+      - name: qtd_alunos_comunicar_conselho_tutelar
+        data_type: int64
+        description: Alunos com 15+ faltas estimadas acumuladas (obrigacao legal).
+      - name: qtd_alunos_alto_sem_escola
+        data_type: int64
+        description: "Alunos em 'alto' com escola nao identificada: o territorio e o unico caminho."
+      - name: qtd_escolas
+        data_type: int64
+        description: Escolas distintas (identificadas) dos alunos do bairro.
+      - name: amostra_pequena
+        data_type: bool
+        description: "TRUE se o bairro tem menos de var('tamanho_minimo_amostra') alunos: percentual instavel."

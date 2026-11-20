@@ -9,7 +9,10 @@
 with
 
 fato as (
+    -- so registros com escola identificada (os demais nao podem ser atribuidos a uma escola;
+    -- 18,7% das linhas - ver README, analise de chaves)
     select * from {{ ref('fct_educacao__avaliacao_bimestre') }}
+    where id_escola is not null
 ),
 
 escola as (
@@ -34,7 +37,7 @@ por_escola_bimestre as (
         count(distinct case when em_absenteismo_cronico then id_aluno end) as qtd_alunos_absenteismo_cronico,
 
         -- qualidade / precisao da ligacao com a escola
-        countif(origem_escola = 'aluno')                                 as qtd_registros_escola_via_aluno,
+        countif(origem_escola = 'turma_matricula')                       as qtd_registros_via_turma_matricula,
         count(*)                                                         as qtd_registros
     from fato
     group by id_escola, bimestre
@@ -60,8 +63,8 @@ final as (
         -- numeros pequenos: 1 aluno em 3 vira "33%". Taxa instavel -> sinalizada, nao escondida
         p.qtd_alunos_avaliados < {{ var('tamanho_minimo_amostra') }} as amostra_pequena,
 
-        round(100 * safe_divide(p.qtd_registros_escola_via_aluno, p.qtd_registros), 1)
-            as pct_registros_escola_via_aluno
+        round(100 * safe_divide(p.qtd_registros_via_turma_matricula, p.qtd_registros), 1)
+            as pct_registros_via_turma_matricula
     from por_escola_bimestre as p
     left join escola as e
         on p.id_escola = e.id_escola

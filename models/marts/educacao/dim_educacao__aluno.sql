@@ -2,6 +2,9 @@
 -- Grao: 1 linha por aluno (97.044).
 -- Papel: atributos do aluno que dao contexto aos fatos e ao alerta. Nenhum dado
 -- identificavel: id_aluno e hash, bairro e hash (salt diferente do bairro da escola).
+-- Escola de matricula pela turma de matricula (nula se a turma nao tem escola conhecida).
+-- Mobilidade (troca de escola) nao e calculavel: so existiria na frequencia, onde a relacao
+-- aluno -> escola foi randomizada (eda/saida_05.txt).
 
 with
 
@@ -29,9 +32,8 @@ final as (
         a.faixa_etaria,
         a.ordem_faixa_etaria,
         a.bairro_residencia_hash,
-        e.id_escola                        as id_escola_referencia,
-        e.qtd_escolas_distintas,
-        e.frequentou_mais_de_uma_escola,
+        e.id_turma_matricula,
+        e.id_escola                        as id_escola_matricula,
         av.id_aluno is not null            as possui_avaliacao,
         coalesce(av.qtd_bimestres_avaliados, 0) as qtd_bimestres_avaliados,
         av.primeiro_bimestre_avaliado,

@@ -18,11 +18,12 @@ turmas_por_escola as (
 ),
 
 alunos_por_escola as (
-    -- alunos que tem esta escola como referencia (registro de frequencia mais recente)
+    -- alunos matriculados (turma de matricula -> escola)
     select
         id_escola,
-        count(*) as qtd_alunos_referencia
+        count(*) as qtd_alunos_matriculados
     from {{ ref('int_educacao__aluno_escola') }}
+    where id_escola is not null
     group by id_escola
 ),
 
@@ -31,7 +32,7 @@ final as (
         e.id_escola,
         e.bairro_escola_hash,
         coalesce(t.qtd_turmas, 0)            as qtd_turmas,
-        coalesce(a.qtd_alunos_referencia, 0) as qtd_alunos_referencia,
+        coalesce(a.qtd_alunos_matriculados, 0) as qtd_alunos_matriculados,
         t.id_escola is not null              as possui_alunos_na_extracao
     from escola as e
     left join turmas_por_escola as t

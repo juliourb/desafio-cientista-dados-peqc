@@ -1,6 +1,7 @@
 -- mart_educacao__alerta_precoce_aluno_bimestre
 -- Grao: aluno x bimestre.
 -- Quem usa: direcao da escola, Agente de Frequencia, CIPE e CRE (Programa Bora pra Escola).
+-- Visao territorial (por bairro de residencia): mart_educacao__alerta_bairro_bimestre.
 -- Para decidir: quem procurar primeiro (busca ativa), com quem fazer atendimento
 -- individualizado e quem acompanhar - e quais casos a lei manda comunicar ao Conselho Tutelar.
 -- Regras (limites em vars; fontes no README):
@@ -23,7 +24,7 @@ aluno as (
     select
         id_aluno,
         faixa_etaria,
-        frequentou_mais_de_uma_escola,
+        bairro_residencia_hash,
         qtd_bimestres_avaliados
     from {{ ref('dim_educacao__aluno') }}
 ),
@@ -32,7 +33,7 @@ sinais as (
     select
         ab.*,
         al.faixa_etaria,
-        al.frequentou_mais_de_uma_escola,
+        al.bairro_residencia_hash,
         al.qtd_bimestres_avaliados,
 
         coalesce(ab.frequencia_acumulada_pct < {{ var('limite_frequencia_legal') }}, false)
@@ -67,6 +68,12 @@ select
     id_aluno,
     bimestre,
     id_escola,
+    -- escola nula = nao identificada com seguranca (README, analise de chaves): o aluno
+    -- continua na lista; a Secretaria resolve a escola com a chave real
+    id_escola is not null as escola_identificada,
+    -- territorio de residencia (hash): permite organizar a busca ativa por bairro e
+    -- acionar parceiros territoriais (Circular E/SUBAIR 02/2026)
+    bairro_residencia_hash,
     faixa_etaria,
 
     nivel_alerta,
@@ -98,7 +105,6 @@ select
     tem_disciplina_abaixo_limite,
 
     -- contexto (nao entra na regra)
-    frequentou_mais_de_uma_escola,
     qtd_turmas_no_bimestre,
     qtd_bimestres_ate_aqui,
     qtd_bimestres_avaliados,

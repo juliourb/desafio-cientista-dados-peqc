@@ -16,8 +16,10 @@ por_aluno_bimestre as (
     select
         id_aluno,
         bimestre,
-        -- escola do registro com menor frequencia (coerente com o pior caso)
-        array_agg(id_escola order by coalesce(frequencia_bimestre_pct, 101), id_escola limit 1)[offset(0)]
+        -- escola do registro com menor frequencia (coerente com o pior caso), ignorando
+        -- registros sem escola identificada; nula se nenhum registro do bimestre tiver escola
+        array_agg(id_escola ignore nulls
+                  order by coalesce(frequencia_bimestre_pct, 101), id_escola limit 1)[safe_offset(0)]
             as id_escola,
         count(*)                          as qtd_turmas_no_bimestre,
         min(frequencia_bimestre_pct)      as frequencia_bimestre_pct,

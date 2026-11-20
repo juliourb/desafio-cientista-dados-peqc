@@ -23,6 +23,7 @@ turma_escola as (
 ),
 
 aluno_escola as (
+    -- escola da turma de MATRICULA (rota coerente; ver int_educacao__aluno_escola)
     select
         id_aluno,
         id_escola
@@ -35,13 +36,17 @@ enriquecido as (
         av.id_turma,
         av.bimestre,
 
-        -- escola: 1o pela turma avaliada (ligacao mais especifica);
-        -- se a turma nao tem escola, pela escola de referencia do aluno.
-        -- origem_escola registra qual caminho foi usado (como o "nivel de precisao" de um geocoding)
+        -- escola: as duas candidatas ficam visiveis (rastreabilidade e teste de concordancia).
+        -- 1a: turma avaliada -> escola; 2a: turma de matricula -> escola. Ambas usam a ponte
+        -- turma -> escola, a unica relacao confiavel da frequencia (eda/saida_05.txt).
+        -- Sem nenhuma das duas, a escola fica NULA: "nao identificada" e melhor que errada
+        -- (a busca ativa iria para a escola errada).
+        te.id_escola as id_escola_turma_avaliada,
+        ae.id_escola as id_escola_turma_matricula,
         coalesce(te.id_escola, ae.id_escola) as id_escola,
         case
-            when te.id_escola is not null then 'turma'
-            when ae.id_escola is not null then 'aluno'
+            when te.id_escola is not null then 'turma_avaliada'
+            when ae.id_escola is not null then 'turma_matricula'
         end as origem_escola,
 
         al.faixa_etaria,

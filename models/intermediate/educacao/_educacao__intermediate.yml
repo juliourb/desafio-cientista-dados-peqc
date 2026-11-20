@@ -21,10 +21,9 @@ models:
 
   - name: int_educacao__aluno_escola
     description: >
-      Escola de referencia do aluno (registro de frequencia mais recente). Grao: 1 linha por aluno.
-      Usada quando a turma avaliada nao tem escola.
+      Escola de matricula do aluno: turma de matricula -> escola pela ponte int_educacao__turma_escola. Grao: 1 linha por aluno. Nao usa a relacao aluno -> escola da frequencia (randomizada; eda/saida_05.txt). Escola nula = turma de matricula sem escola conhecida.
     data_tests:
-      - dbt_utils.equal_rowcount:          # EDA: 100% dos alunos tem frequencia -> todos tem escola
+      - dbt_utils.equal_rowcount:          # 1 linha por aluno: o left join nao perde nem duplica alunos
           arguments:
             compare_model: ref('stg_educacao__aluno')
     columns:
@@ -36,24 +35,15 @@ models:
               arguments:
                 to: ref('stg_educacao__aluno')
                 field: id_aluno
+      - name: id_turma_matricula
+        description: Turma de matricula do aluno (stg_educacao__aluno.id_turma).
       - name: id_escola
         data_tests:
-          - not_null
           - relationships:
               arguments:
                 to: ref('stg_educacao__escola')
                 field: id_escola
-      - name: ultima_data_frequencia
-        description: "Fim do periodo mais recente com frequencia nesta escola."
-      - name: qtd_escolas_distintas
-        description: "Em quantas escolas o aluno teve frequencia no periodo (1 = sempre na mesma)."
-        data_tests:
-          - not_null
-          - dbt_expectations.expect_column_values_to_be_between:
-              arguments:
-                min_value: 1
-      - name: frequentou_mais_de_uma_escola
-        description: "TRUE se o aluno passou por mais de uma escola (transferencia?)."
+        description: Escola da turma de matricula. Nula quando a turma nao esta no catalogo turma -> escola.
 
   - name: int_educacao__avaliacao_enriquecida
     description: >
@@ -67,21 +57,31 @@ models:
           arguments:
             compare_model: ref('stg_educacao__avaliacao')
     columns:
-      - name: id_escola
-        description: "Escola pela turma avaliada; na falta, a escola de referencia do aluno."
+      - name: id_escola_turma_avaliada
+        description: 'Candidata 1: escola da turma em que o aluno foi avaliado (ponte turma -> escola).'
         data_tests:
-          - not_null
+          # validador de chaves: as duas rotas validas devem apontar a mesma escola (hoje 98,7%); queda indica chave quebrada na carga
+          - concordancia_minima:
+              arguments:
+                coluna_comparacao: id_escola_turma_matricula
+                minimo_pct: 95
+      - name: id_escola_turma_matricula
+        description: 'Candidata 2: escola da turma de matricula do aluno (ponte turma -> escola).'
+      - name: id_escola
+        description: "Escola pela turma avaliada; na falta, pela turma de matricula. Nula = nao identificada com seguranca (18,7% das linhas)."
+        data_tests:
           - relationships:
               arguments:
                 to: ref('stg_educacao__escola')
                 field: id_escola
       - name: origem_escola
-        description: "'turma' = via turma avaliada; 'aluno' = via escola de referencia do aluno."
+        description: "'turma_avaliada' | 'turma_matricula' | nulo (escola nao identificada)."
         data_tests:
-          - not_null
           - accepted_values:
               arguments:
-                values: ['turma', 'aluno']
+                values:
+                  - turma_avaliada
+                  - turma_matricula
       - name: faixa_etaria
         data_tests:
           - not_null
@@ -118,9 +118,7 @@ models:
             combination_of_columns: [id_aluno, bimestre]
     columns:
       - name: id_escola
-        description: "Escola do registro com menor frequencia no bimestre (pior caso)."
-        data_tests:
-          - not_null
+        description: "Escola do registro com menor frequencia no bimestre entre os que tem escola (pior caso). Nula se nenhum tem escola identificada."
       - name: qtd_turmas_no_bimestre
         description: "1 = normal; 2+ = aluno avaliado em mais de uma turma no bimestre."
         data_tests:

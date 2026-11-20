@@ -1,48 +1,34 @@
 -- int_educacao__aluno_escola
 -- Grao: 1 linha por aluno.
--- Papel: escola de referencia do aluno, via frequencia (EDA: 100% dos alunos tem frequencia).
--- Serve de "plano B" quando a turma avaliada nao tem escola (eda/saida_04.txt, d1:
--- 41.490 linhas da avaliacao sem escola pela turma).
--- Regra: se o aluno aparece em mais de uma escola, fica a do registro mais recente
--- (onde ele esta agora = onde a acao da gestao chega). Empate: mais registros; depois,
--- menor id_escola, so para o resultado ser deterministico (mesma entrada, mesma saida).
+-- Papel: escola de MATRICULA do aluno = turma de matricula (stg_educacao__aluno) ligada a
+-- escola pela ponte int_educacao__turma_escola.
+-- Por que nao usar a escola do aluno na tabela de frequencia: nela a associacao
+-- aluno -> turma/escola foi randomizada (eda/saida_05.txt: so 11 de 105.934 pares
+-- aluno x turma batem com a matricula; a escola "do aluno" concorda com a da turma em 0,3%).
+-- Da frequencia usamos apenas a relacao turma -> escola, que foi preservada.
+-- Escola nula = turma de matricula fora do catalogo turma -> escola ("nao identificada").
 
 with
 
-frequencia as (
+aluno as (
     select
         id_aluno,
-        id_escola,
-        data_fim
-    from {{ ref('stg_educacao__frequencia') }}
+        id_turma as id_turma_matricula
+    from {{ ref('stg_educacao__aluno') }}
 ),
 
-por_aluno_escola as (
-    select
-        id_aluno,
-        id_escola,
-        max(data_fim) as ultima_data_frequencia,
-        count(*)      as qtd_registros
-    from frequencia
-    group by id_aluno, id_escola
+turma_escola as (
+    select * from {{ ref('int_educacao__turma_escola') }}
 ),
 
-ranqueado as (
+final as (
     select
-        *,
-        row_number() over (
-            partition by id_aluno
-            order by ultima_data_frequencia desc, qtd_registros desc, id_escola
-        ) as ordem,
-        count(*) over (partition by id_aluno) as qtd_escolas_distintas
-    from por_aluno_escola
+        al.id_aluno,
+        al.id_turma_matricula,
+        te.id_escola
+    from aluno as al
+    left join turma_escola as te
+        on al.id_turma_matricula = te.id_turma
 )
 
-select
-    id_aluno,
-    id_escola,
-    ultima_data_frequencia,
-    qtd_escolas_distintas,
-    qtd_escolas_distintas > 1 as frequentou_mais_de_uma_escola
-from ranqueado
-where ordem = 1
+select * from final
