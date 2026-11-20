@@ -1,0 +1,45 @@
+
+### 1. Turmas da frequencia com mais de uma escola (esperado: 0)
+┌────────┬──────────────────────────────┐
+│ turmas │ turmas_com_2_ou_mais_escolas │
+│ int64  │            int64             │
+├────────┼──────────────────────────────┤
+│   5516 │                            0 │
+└────────┴──────────────────────────────┘
+
+
+### 2. Pares aluno x turma da frequencia que existem na matricula
+┌────────────┬───────────────────────────────┬────────┐
+│ pares_freq │ pares_que_batem_com_matricula │  pct   │
+│   int64    │             int64             │ double │
+├────────────┼───────────────────────────────┼────────┤
+│     105934 │                            11 │   0.01 │
+└────────────┴───────────────────────────────┴────────┘
+
+
+### 3. Concordancia: escola pela turma avaliada x escola pela turma de matricula
+┌────────────────────┬────────┬──────────────────┐
+│ linhas_com_as_duas │ iguais │ pct_concordancia │
+│       int64        │ int64  │      double      │
+├────────────────────┼────────┼──────────────────┤
+│             179556 │ 177220 │             98.7 │
+└────────────────────┴────────┴──────────────────┘
+
+
+### 4. Concordancia: escola pela turma avaliada x escola do aluno na frequencia (rota descartada)
+┌────────────────────┬────────┬──────────────────┐
+│ linhas_com_as_duas │ iguais │ pct_concordancia │
+│       int64        │ int64  │      double      │
+├────────────────────┼────────┼──────────────────┤
+│             180197 │    538 │              0.3 │
+└────────────────────┴────────┴──────────────────┘
+
+
+### 5. Cobertura da escola na avaliacao pelas rotas validas
+┌────────┬────────────────────┬─────────────────────┬─────────────────────────┬──────────────────────┐
+│ linhas │ via_turma_avaliada │ via_turma_matricula │ escola_nao_identificada │ pct_nao_identificada │
+│ int64  │       int64        │        int64        │          int64          │        double        │
+├────────┼────────────────────┼─────────────────────┼─────────────────────────┼──────────────────────┤
+│ 221687 │             180197 │                  22 │                   41468 │                 18.7 │
+└────────┴────────────────────┴─────────────────────┴─────────────────────────┴──────────────────────┘
+
