@@ -21,6 +21,8 @@ encontrados pelos testes em tarefas com responsável, para que sejam corrigidos 
 
 ### Principais resultados
 
+- **Protótipo navegável:** [Radar da Busca Ativa](https://radar-busca-ativa-rio.streamlit.app),
+  com os resultados comentados e um simulador da busca ativa (ver [Protótipo](#protótipo)).
 - **19 modelos** em três camadas, com contracts nos 10 marts, testes genéricos e singulares,
   unit tests das regras de alerta e um teste customizado que valida as chaves entre tabelas a
   cada build.
@@ -44,10 +46,13 @@ encontrados pelos testes em tarefas com responsável, para que sejam corrigidos 
 ├── packages.yml / package-lock.yml
 ├── requirements.txt
 ├── eda/                       # análise exploratória (DuckDB) com as saídas versionadas
+├── scripts/exportar_snapshot.py  # exporta o snapshot agregado que alimenta o protótipo
+├── app/                       # protótipo Streamlit (páginas, regras, snapshot em app/data/)
+├── .streamlit/config.toml     # tema do protótipo
 ├── models/
 │   ├── staging/educacao/      # 5 stagings, sources e testes
 │   ├── intermediate/educacao/ # joins e regras de negócio
-│   └── marts/educacao/        # 3 dimensões, 1 fato, 6 marts temáticos, contracts e unit tests
+│   └── marts/educacao/        # 3 dimensões, 1 fato, 6 marts temáticos, contracts, unit tests e exposure
 └── tests/
     ├── assert_*.sql           # regras educacionais (testes singulares)
     └── generic/test_concordancia_minima.sql
@@ -83,17 +88,22 @@ flowchart TB
   D["<b>Modelo dimensional</b><br/>3 dimensões e 1 fato"]
   E["<b>Marts de política</b><br/>absenteísmo por escola · frequência e desempenho<br/>alerta por aluno · alerta por bairro"]
   F["<b>Marts de qualidade</b><br/>fila de pendências · resumo por escola"]
+  G["<b>Exposure</b><br/>protótipo Radar da Busca Ativa<br/>(snapshot agregado)"]
   A --> B --> C
   C --> D
   C --> E
   C --> F
   B --> F
+  D --> G
+  E --> G
+  F --> G
   classDef base fill:#F1EFE8,stroke:#5F5E5A,color:#2C2C2A
   classDef pol fill:#E1F5EE,stroke:#0F6E56,color:#085041
   classDef qual fill:#FAEEDA,stroke:#854F0B,color:#633806
   class A,B,C,D base
   class E pol
   class F qual
+  class G pol
 ```
 
 O lineage completo, modelo a modelo, está no `dbt docs` (`dbt docs generate && dbt docs serve`).
@@ -161,6 +171,14 @@ dbt deps                 # dbt_utils, dbt_expectations, codegen (versões fixas 
 dbt debug
 dbt build                # modelos, testes, unit tests e contracts
 dbt docs generate && dbt docs serve   # documentação e lineage
+```
+
+Para rodar o protótipo localmente (ambiente próprio, separado do dbt):
+
+```bash
+# 6. Protótipo (opcional)
+pip install -r app/requirements.txt
+streamlit run app/streamlit_app.py
 ```
 
 Cada camada vai para um schema próprio (`dbt_dev_staging`, `dbt_dev_intermediate` e
@@ -382,6 +400,51 @@ porque vêm da randomização da extração e não de um erro que a escola possa
 
 ---
 
+## Protótipo
+
+**[Radar da Busca Ativa](https://radar-busca-ativa-rio.streamlit.app)** é uma prova de
+conceito em Streamlit que mostra como os marts seriam usados. Tem três páginas:
+
+- **Resultados:** a rampa entre frequência e nota baixa, a correlação por bimestre, o alerta
+  por nível, o ranking dos bairros e a fila de pendências, cada gráfico com a leitura e a
+  decisão de gestão que apoia.
+- **Busca ativa:** simula o trabalho do técnico. Mostra a fila de prioridade por bairro ou
+  escola e uma lista nominal em que cada caso pode ser marcado como contatado, não localizado
+  ou retornou, com download da lista.
+- **Sobre os dados:** como o snapshot é gerado, o que é real e o que é fictício, e as
+  limitações.
+
+**A lista nominal usa alunos fictícios**, gerados a partir das distribuições reais e
+classificados pelas mesmas regras do mart. Nenhum dado individual real sai do warehouse. O
+restante é real e agregado, com pseudônimos para escolas e bairros (sem ids nem hashes) e
+taxas ocultadas quando o grupo tem menos de 10 alunos.
+
+**O app não recalcula nada por conta própria.** Ele lê um snapshot dos marts testados
+(`app/data/`, versionado), e os limites das regras vêm das `vars` do `dbt_project.yml`. O
+script `scripts/exportar_snapshot.py` confere, a cada exportação, se as regras em Python
+reproduzem as do dbt. Com 221.106 linhas de aluno e bimestre, a concordância é de 100% no
+nível de alerta, nos motivos e na flag do Conselho Tutelar, e os 11 casos de borda dos unit
+tests também passam. Na frequência acumulada, 0,55% das linhas diferem em 0,1 ponto: são
+empates de arredondamento causados pela ordem de soma em ponto flutuante, e nenhum muda o
+nível de alerta. Se a concordância cair, o script não grava o snapshot. O protótipo está
+declarado como `exposure` no dbt, e por isso aparece no lineage como consumidor dos marts.
+
+**O que a correlação acrescenta à curva.** No aluno individual, a correlação entre frequência
+e média do bimestre é moderada (Pearson 0,43 e Spearman 0,32 no ano; a frequência explica
+cerca de 18% da variação da nota). Ela é forte no grupo, como mostra a rampa, e insuficiente
+no indivíduo, e por isso o alerta combina frequência e nota. O Spearman, que compara apenas
+a ordem dos alunos, fica abaixo do Pearson. Isso indica que a relação vem sobretudo dos
+alunos com frequência muito baixa: entre os assíduos, a frequência pouco diferencia a nota.
+Por isso o alerta trabalha com limites, e não com um ranking contínuo de frequência.
+
+Para atualizar o snapshot, com o ambiente do dbt ativo e o `dbt build` concluído, rode
+`python scripts/exportar_snapshot.py` e faça o commit de `app/data/`. Como o snapshot fica no
+repositório, o app continua no ar mesmo quando as tabelas do BigQuery Sandbox expiram. O app
+entra em hibernação depois de 12 horas sem acesso e volta no primeiro clique, após alguns
+segundos.
+
+---
+
 ## Relevância dos testes e qualidade dos dados
 
 Os testes cumprem dois papéis. Alguns protegem o pipeline: se falham, o dado publicado
@@ -480,7 +543,8 @@ repassa às escolas. O projeto nunca reidentifica ninguém.
 | Comparar escolas com perfil socioeconômico parecido | INSE das escolas (INEP/Saeb) e Censo Escolar | separar o efeito da escola do efeito do contexto |
 | Contar faltas consecutivas e separar as justificadas | registro diário de frequência (app DiáRio) | acionar o Agente de Frequência no momento certo |
 | Ponte oficial entre turma e escola | cadastro de turmas da SME | eliminar os 18,7% sem escola |
-| CI com `dbt build` a cada pull request e `exposures` dos marts | GitHub Actions e conta de serviço | qualidade conferida antes de publicar e consumidores declarados no lineage |
+| CI com `dbt build` a cada pull request e atualização automática do snapshot do protótipo | GitHub Actions e conta de serviço | qualidade conferida antes de publicar e protótipo sempre em dia com os marts |
+| Média acumulada calculada em `NUMERIC` no `int_educacao__aluno_bimestre` | só a mudança no modelo | arredondamento determinístico, sem os empates de ponto flutuante |
 | Camada bruta histórica, com as cargas guardadas por data | projeto fora do Sandbox (com DML) | séries históricas, registro de mudanças no cadastro e análises longitudinais e de coorte |
 
 ---
@@ -498,7 +562,7 @@ início: testes, depois modelagem, depois documentação.
 | 2 | qua 18/11 | intermediate, dimensões, fato e o primeiro mart |
 | 3 | qui 19/11 | regras de alerta, curva de frequência e desempenho, unit tests e contracts |
 | 4 | sex 20/11 | análise de chaves, mart territorial, fila de pendências e documentação |
-| 5 | sáb 21/11 | revisão final e entrega |
+| 5 | sáb 21/11 | protótipo Streamlit, revisão final e entrega |
 
 As decisões foram registradas com justificativa ao fim de cada sessão, e a análise
 exploratória ficou versionada em `eda/`, de modo que cada teste e cada transformação do
@@ -515,10 +579,12 @@ staging aponta para um achado medido.
   nome. Por isso a fila de pendências e o alerta são entregues a ela, que faz a ponte com as
   escolas.
 - Escolas e bairros com menos de 10 alunos são sinalizados (`amostra_pequena`). Para o uso
-  interno da busca ativa, a taxa aparece; numa publicação aberta, o passo seguinte seria
-  ocultá-la.
-- Não há credenciais nem dados no repositório: o `profiles.yml` fica em `~/.dbt/` e os
-  arquivos de `data/` não são versionados.
+  interno da busca ativa, a taxa aparece; no protótipo público, ela é ocultada.
+- O protótipo público não mostra nenhum dado individual real: a lista nominal é de alunos
+  fictícios, e escolas e bairros aparecem com pseudônimos, sem ids nem hashes.
+- Não há credenciais nem dados individuais no repositório: o `profiles.yml` fica em `~/.dbt/`,
+  os arquivos de `data/` não são versionados, e `app/data/` guarda só o snapshot agregado e
+  os alunos fictícios.
 
 ---
 
