@@ -403,16 +403,27 @@ porque vêm da randomização da extração e não de um erro que a escola possa
 ## Protótipo
 
 **[Radar da Busca Ativa](https://radar-busca-ativa-rio.streamlit.app)** é uma prova de
-conceito em Streamlit que mostra como os marts seriam usados. Tem três páginas:
+conceito em Streamlit que mostra como os marts seriam usados. Tem quatro páginas, em abas:
 
-- **Resultados:** a rampa entre frequência e nota baixa, a correlação por bimestre, o alerta
-  por nível, o ranking dos bairros e a fila de pendências, cada gráfico com a leitura e a
-  decisão de gestão que apoia.
-- **Busca ativa:** simula o trabalho do técnico. Mostra a fila de prioridade por bairro ou
-  escola e uma lista nominal em que cada caso pode ser marcado como contatado, não localizado
-  ou retornou, com download da lista.
-- **Sobre os dados:** como o snapshot é gerado, o que é real e o que é fictício, e as
-  limitações.
+- **Resultados:** os quatro achados principais numa grade (a rampa entre frequência e nota
+  baixa, a correlação por bimestre, o alerta por nível com a regra das 15 faltas e o ranking
+  dos bairros). Cada card traz a conclusão, a decisão de gestão que apoia e um "Como ler" com
+  a explicação completa.
+- **Busca ativa:** simula o trabalho do técnico. Ao lado da fila de prioridade por bairro ou
+  escola fica a lista nominal. Clicar num aluno abre a ficha, com a trajetória nos quatro
+  bimestres, os motivos do alerta e o registro do contato (status, observação e histórico). A
+  lista pode ser baixada.
+- **Qualidade do dado:** a fila de pendências por tipo e por escola e a comunicação com as
+  escolas. Clicar numa escola mostra as pendências dela, com a ação sugerida e o responsável
+  vindos do próprio mart, o status da comunicação com a direção e uma mensagem pronta para
+  enviar. As pendências sem escola identificada aparecem separadas, sob responsabilidade da
+  Secretaria. Esse é o ciclo de retorno: o teste encontra o problema, a escola corrige na
+  origem e a próxima carga confirma.
+- **Sobre os dados:** quem usa cada mart, como o snapshot é gerado, o que é real e o que é
+  fictício, o aviso de anonimização e as limitações.
+
+O acompanhamento de alunos e escolas é uma simulação: os registros valem só para a sessão do
+navegador e não são gravados.
 
 **A lista nominal usa alunos fictícios**, gerados a partir das distribuições reais e
 classificados pelas mesmas regras do mart. Nenhum dado individual real sai do warehouse. O
@@ -420,7 +431,8 @@ restante é real e agregado, com pseudônimos para escolas e bairros (sem ids ne
 taxas ocultadas quando o grupo tem menos de 10 alunos.
 
 **O app não recalcula nada por conta própria.** Ele lê um snapshot dos marts testados
-(`app/data/`, versionado), e os limites das regras vêm das `vars` do `dbt_project.yml`. O
+(`app/data/`, versionado), e os limites das regras vêm das `vars` do `dbt_project.yml`. As
+ações sugeridas para cada tipo de pendência também vêm do mart, num catálogo exportado junto. O
 script `scripts/exportar_snapshot.py` confere, a cada exportação, se as regras em Python
 reproduzem as do dbt. Com 221.106 linhas de aluno e bimestre, a concordância é de 100% no
 nível de alerta, nos motivos e na flag do Conselho Tutelar, e os 11 casos de borda dos unit
