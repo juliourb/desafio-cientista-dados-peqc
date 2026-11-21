@@ -19,7 +19,7 @@ det = par["acumulado_frequencia_detalhe"]
 ut = meta["paridade"]["unit_tests"]
 minimo = v["tamanho_minimo_amostra"]
 
-secao(1, "Aviso de privacidade")
+secao("1 · Aviso de privacidade")
 st.markdown(
     "Os dados do desafio são anonimizados: ids de aluno e de escola e o bairro (em hash com salt) não identificam "
     "ninguém, e nenhuma tentativa de reidentificação ou de cruzamento com fontes externas foi feita. Este app vai "
@@ -28,7 +28,7 @@ st.markdown(
     "guardado em lugar nenhum, e nenhuma linha individual real é publicada."
 )
 
-secao(2, "Real agregado e fictício")
+secao("2 · Real agregado e fictício")
 st.markdown(
     "| O que aparece | Origem |\n|---|---|\n"
     "| Curva de frequência x nota baixa, correlações, alertas por nível, ranking de bairros e escolas, fila de "
@@ -41,7 +41,7 @@ st.caption("Os alunos fictícios têm escolas e bairros fictícios (“Escola De
 st.caption("A evolução dos fictícios foi calibrada para não contradizer a tendência agregada observada; "
            "não representa efeito de intervenção.")
 
-secao(3, "Supressão de amostras pequenas")
+secao("3 · Supressão de amostras pequenas")
 st.markdown(
     f"Linhas com menos de **{minimo} alunos** (limite `tamanho_minimo_amostra` do projeto) aparecem como "
     "“amostra pequena”: as taxas, os percentuais e as contagens de alunos da linha ficam em branco. Nos marts do "
@@ -53,7 +53,7 @@ st.markdown(
     "correção se mostrar todas as escolas."
 )
 
-secao(4, "Como o snapshot é gerado")
+secao("4 · Como o snapshot é gerado")
 st.markdown("O snapshot é gerado por um script que só lê (SELECT) os marts do BigQuery e grava arquivos pequenos "
             "em `app/data/`. A partir da raiz do repositório, no ambiente do dbt:")
 st.code("python scripts/exportar_snapshot.py", language="bash")
@@ -62,7 +62,7 @@ st.markdown(
     "são lidas das `vars` do `dbt_project.yml`; não há limite de política fixo no código do app."
 )
 
-secao(5, "Concordância entre as regras em Python e o dbt")
+secao("5 · Concordância entre as regras em Python e o dbt")
 st.markdown(
     "O app reproduz em Python as regras do mart de alerta e o cálculo acumulado da frequência. A cada exportação, "
     "o script compara a réplica com o mart e **não grava nada se a concordância cair**."
@@ -83,7 +83,7 @@ st.markdown(
     f"{f_dec(v['limite_frequencia_legal'], 0)}% ou {f_dec(v['limite_frequencia_atendimento'], 0)}%)."
 )
 
-secao(6, "Limitações")
+secao("6 · Limitações")
 st.markdown(
     "- A avaliação é quase toda de alunos de 15 a 17 anos, e os resultados descrevem sobretudo essa faixa.\n"
     "- A evasão não pode ser medida, porque a falta de registro no fim do ano é recorte da extração.\n"
@@ -98,5 +98,20 @@ st.markdown(
     "- Este é um protótipo (prova de conceito): os alunos da lista nominal são fictícios."
 )
 
-secao(7, "Links")
+secao("7 · Para quem e para quê")
+st.markdown(
+    """
+| Produto | Quem usa | Decisão que apoia |
+|---|---|---|
+| Alerta por aluno e bimestre | direção da escola, Agente de Frequência, CIPE | quem procurar, com quem fazer atendimento, quem comunicar ao Conselho Tutelar |
+| Alerta por bairro e bimestre | equipes de busca ativa e parceiros territoriais | em quais bairros concentrar a busca ativa |
+| Absenteísmo por escola e bimestre | Coordenadorias Regionais (CRE) | quais escolas acompanhar no próximo bimestre |
+| Frequência e desempenho | planejamento | se os cortes de 75% e 85% marcam piora nesta rede |
+| Fila de pendências de qualidade | Secretaria, que distribui às escolas | o que corrigir na origem e por onde começar |
+"""
+)
+st.caption("A busca ativa também é territorial: a Circular E/SUBAIR 02/2026 orienta as escolas a planejá-la com "
+           "o Conselho Escola-Comunidade, lideranças locais e associações de moradores.")
+
+secao("8 · Links")
 st.markdown(f"- [README do projeto]({REPO_URL}#readme)\n- [Repositório]({REPO_URL})")

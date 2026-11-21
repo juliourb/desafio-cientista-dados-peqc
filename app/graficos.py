@@ -65,7 +65,7 @@ def _escala_niveis() -> alt.Scale:
 # ----------------------------------------------------------------------------
 # 2. curva frequência x nota baixa
 # ----------------------------------------------------------------------------
-def curva(df: pd.DataFrame, limite_legal: float, limite_atend: float) -> alt.Chart:
+def curva(df: pd.DataFrame, limite_legal: float, limite_atend: float, altura: int = 340) -> alt.Chart:
     d = df[~df["suprimido"]].copy()
     d["x"] = d["faixa_frequencia_inicio"] + 2.5
     d["grupo"] = d["grupo_etario"].map(GRUPOS)
@@ -106,13 +106,13 @@ def curva(df: pd.DataFrame, limite_legal: float, limite_atend: float) -> alt.Cha
         ).encode(x="x:Q", y=alt.value(2), text="rotulo:N")
 
     return alt.layer(regua, linhas, pontos, rotulo(0, "right", -5), rotulo(1, "left", 5)).properties(
-        height=340)
+        height=altura)
 
 
 # ----------------------------------------------------------------------------
 # 3. correlação por bimestre
 # ----------------------------------------------------------------------------
-def correlacao(df: pd.DataFrame) -> alt.Chart:
+def correlacao(df: pd.DataFrame, altura: int = 320) -> alt.Chart:
     d = df[~df["suprimido"]].copy()
     longo = d.melt(id_vars=["rotulo_bimestre", "n", "classificacao"], value_vars=["pearson", "spearman"],
                    var_name="medida", value_name="r")
@@ -140,13 +140,13 @@ def correlacao(df: pd.DataFrame) -> alt.Chart:
     ])
     valores = base.mark_text(dy=-7, fontSize=11).encode(text="txt_r:N")
     refs = alt.Chart(pd.DataFrame({"y": [0.3, 0.5]})).mark_rule(strokeDash=[5, 4], color=MUDO).encode(y="y:Q")
-    return alt.layer(refs, barras, valores).properties(height=320)
+    return alt.layer(refs, barras, valores).properties(height=altura)
 
 
 # ----------------------------------------------------------------------------
 # 4. alerta por nível e bimestre
 # ----------------------------------------------------------------------------
-def alerta_barras(resumo: pd.DataFrame, modo_pct: bool) -> alt.Chart:
+def alerta_barras(resumo: pd.DataFrame, modo_pct: bool, altura: int = 340, compacto: bool = False) -> alt.Chart:
     d = resumo.copy()
     d["qtd"] = d["qtd_alunos"].fillna(0).astype(float)
     d["total"] = d.groupby("bimestre")["qtd"].transform("sum")
@@ -164,22 +164,22 @@ def alerta_barras(resumo: pd.DataFrame, modo_pct: bool) -> alt.Chart:
         alt.Chart(d[["bim", "nivel", "acao", "ordem", "qtd", "pct", "txt_qtd", "txt_pct"]])
         .mark_bar()
         .encode(
-            x=alt.X("bim:N", title=None, axis=alt.Axis(labelAngle=0)),
+            x=alt.X("bim:N", title=None, axis=alt.Axis(labelAngle=0, **({"labelExpr": "slice(datum.value, 0, 2)"} if compacto else {}))),
             y=alt.Y(f"{campo}:Q", title=titulo_y, axis=eixo, stack="zero"),
-            color=alt.Color("nivel:N", scale=_escala_niveis(), legend=alt.Legend(title=None)),
+            color=alt.Color("nivel:N", scale=_escala_niveis(), legend=alt.Legend(title=None, **({"orient": "bottom", "columns": 2, "labelLimit": 200} if compacto else {}))),
             order=alt.Order("ordem:Q", sort="ascending"),
             tooltip=[alt.Tooltip("bim:N", title="Período"), alt.Tooltip("nivel:N", title="Nível"),
                      alt.Tooltip("acao:N", title="Ação"), alt.Tooltip("txt_qtd:N", title="Alunos"),
                      alt.Tooltip("txt_pct:N", title="Parcela")],
         )
-        .properties(height=340)
+        .properties(height=altura)
     )
 
 
 # ----------------------------------------------------------------------------
 # 5. a regra das 15 faltas
 # ----------------------------------------------------------------------------
-def faltas_regra(df: pd.DataFrame) -> alt.Chart:
+def faltas_regra(df: pd.DataFrame, altura: int = 340, compacto: bool = False) -> alt.Chart:
     """df: bimestre, rotulo, pct_com_alerta, pct_sem_outro_sinal, pct_total, qtd_total."""
     longo = df.melt(id_vars=["rotulo", "pct_total", "qtd_com_alerta", "qtd_sem_outro_sinal"],
                     value_vars=["pct_com_alerta", "pct_sem_outro_sinal"], var_name="parte", value_name="pct")
@@ -194,24 +194,24 @@ def faltas_regra(df: pd.DataFrame) -> alt.Chart:
     topo = df[["rotulo", "pct_total"]].copy()
     topo["txt_total"] = topo["pct_total"].map(f_pct)
     barras = alt.Chart(longo).mark_bar().encode(
-        x=alt.X("rotulo:N", title=None, axis=alt.Axis(labelAngle=0)),
+        x=alt.X("rotulo:N", title=None, axis=alt.Axis(labelAngle=0, **({"labelExpr": "slice(datum.value, 0, 2)"} if compacto else {}))),
         y=alt.Y("pct:Q", title="% dos alunos avaliados", stack="zero",
                 axis=alt.Axis(labelExpr="format(datum.value, '.0f') + '%'")),
         color=alt.Color("parte:N", scale=alt.Scale(
             domain=["Já em nível de alerta (alto, médio ou atenção)", "Sem nenhum outro sinal (só a regra legal)"],
-            range=["#8FBFD0", PRIMARIA]), legend=alt.Legend(title=None, direction="vertical")),
+            range=["#8FBFD0", PRIMARIA]), legend=alt.Legend(title=None, direction="vertical", **({"orient": "bottom", "labelLimit": 400, "labelFontSize": 10, "symbolSize": 50} if compacto else {}))),
         tooltip=[alt.Tooltip("rotulo:N", title="Período"), alt.Tooltip("parte:N", title="Grupo"),
                  alt.Tooltip("txt_qtd:N", title="Alunos"), alt.Tooltip("txt_pct:N", title="Parcela")],
     )
     totais = alt.Chart(topo).mark_text(dy=-8, fontWeight=600).encode(
         x=alt.X("rotulo:N"), y=alt.Y("pct_total:Q"), text="txt_total:N")
-    return alt.layer(barras, totais).properties(height=340)
+    return alt.layer(barras, totais).properties(height=altura)
 
 
 # ----------------------------------------------------------------------------
 # 6. território
 # ----------------------------------------------------------------------------
-def territorio(top: pd.DataFrame) -> alt.Chart:
+def territorio(top: pd.DataFrame, altura: int | None = None) -> alt.Chart:
     """top: bairro, qtd_alto, qtd_alto_sem_escola (já ordenado por ranking)."""
     d = top.copy()
     d["Com escola identificada"] = d["qtd_alto"] - d["qtd_alto_sem_escola"]
@@ -233,13 +233,32 @@ def territorio(top: pd.DataFrame) -> alt.Chart:
     )
     totais = alt.Chart(d).mark_text(align="left", dx=4).encode(
         y=alt.Y("bairro:N", sort=ordem), x=alt.X("qtd_alto:Q"), text="txt_total:N")
-    return alt.layer(barras, totais).properties(height=max(260, 24 * len(d) + 80))
+    return alt.layer(barras, totais).properties(height=altura or max(260, 24 * len(d) + 80))
 
 
 # ----------------------------------------------------------------------------
 # 7. pendências de qualidade por escola
 # ----------------------------------------------------------------------------
-def pendencias(top: pd.DataFrame) -> alt.Chart:
+def pendencias_tipo(pend: pd.DataFrame, altura: int = 300) -> alt.Chart:
+    """Total de pendências por tipo (todas as linhas da fila, inclusive a central)."""
+    soma = pd.DataFrame({
+        "tipo": [TIPOS_PENDENCIA[c] for c in TIPOS_PENDENCIA if c in pend.columns],
+        "qtd": [float(pend[c].sum()) for c in TIPOS_PENDENCIA if c in pend.columns],
+    })
+    soma = soma[soma["qtd"] > 0].sort_values("qtd", ascending=False)
+    soma["txt_qtd"] = soma["qtd"].map(f_int)
+    ordem = list(soma["tipo"])
+    barras = alt.Chart(soma).mark_bar(color=PRIMARIA).encode(
+        y=alt.Y("tipo:N", sort=ordem, title=None, axis=alt.Axis(grid=False, labelLimit=260)),
+        x=alt.X("qtd:Q", title="Pendências", axis=alt.Axis(grid=True, labelExpr=EIXO_MILHAR)),
+        tooltip=[alt.Tooltip("tipo:N", title="Tipo"), alt.Tooltip("txt_qtd:N", title="Pendências")],
+    )
+    rotulos = alt.Chart(soma).mark_text(align="left", dx=4).encode(
+        y=alt.Y("tipo:N", sort=ordem), x=alt.X("qtd:Q"), text="txt_qtd:N")
+    return alt.layer(barras, rotulos).properties(height=altura)
+
+
+def pendencias(top: pd.DataFrame, altura: int | None = None) -> alt.Chart:
     colunas = [c for c in TIPOS_PENDENCIA if c in top.columns and top[c].sum() > 0]
     longo = top.melt(id_vars=["escola", "qtd_pendencias"], value_vars=colunas, var_name="tipo", value_name="qtd")
     longo["tipo"] = longo["tipo"].map(TIPOS_PENDENCIA)
@@ -253,19 +272,19 @@ def pendencias(top: pd.DataFrame) -> alt.Chart:
         y=alt.Y("escola:N", sort=ordem, title=None, axis=alt.Axis(grid=False)),
         x=alt.X("qtd:Q", title="Pendências", axis=alt.Axis(grid=True, labelExpr=EIXO_MILHAR), stack="zero"),
         color=alt.Color("tipo:N", scale=alt.Scale(domain=dominio, range=CORES_PENDENCIA[:len(dominio)]),
-                        legend=alt.Legend(title=None, direction="vertical")),
+                        legend=alt.Legend(title=None, direction="vertical", labelLimit=320)),
         tooltip=[alt.Tooltip("escola:N", title="Escola"), alt.Tooltip("tipo:N", title="Tipo"),
                  alt.Tooltip("txt_qtd:N", title="Pendências")],
     )
     rotulos = alt.Chart(totais).mark_text(align="left", dx=4).encode(
         y=alt.Y("escola:N", sort=ordem), x=alt.X("qtd_pendencias:Q"), text="txt_total:N")
-    return alt.layer(barras, rotulos).properties(height=max(260, 24 * len(top) + 80))
+    return alt.layer(barras, rotulos).properties(height=altura or max(260, 24 * len(top) + 80))
 
 
 # ----------------------------------------------------------------------------
 # ficha do aluno fictício
 # ----------------------------------------------------------------------------
-def ficha(aluno: pd.DataFrame, limite_legal: float, limite_atend: float) -> alt.Chart:
+def ficha(aluno: pd.DataFrame, limite_legal: float, limite_atend: float, altura: int = 320) -> alt.Chart:
     d = aluno.sort_values("bimestre").copy()
     d["bim"] = d["bimestre"].astype(int)
     d["nivel"] = d["nivel_alerta"].map(ROTULO)
@@ -298,4 +317,4 @@ def ficha(aluno: pd.DataFrame, limite_legal: float, limite_atend: float) -> alt.
     regua = alt.Chart(refs).mark_rule(strokeDash=[5, 4], color=MUDO, strokeWidth=1.2).encode(y=alt.Y("y:Q", scale=y_dom))
     rotulos = alt.Chart(refs).mark_text(align="left", baseline="bottom", dy=-4, dx=2, color=MUDO, fontWeight=600).encode(
         y=alt.Y("y:Q", scale=y_dom), x=alt.value(0), text="rotulo:N")
-    return alt.layer(regua, rotulos, bimestral, acumulada, pontos).properties(height=320)
+    return alt.layer(regua, rotulos, bimestral, acumulada, pontos).properties(height=altura)
