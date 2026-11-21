@@ -154,6 +154,55 @@ verificar(len(at.radio) == 1 and list(at.radio[0].options) == ["Pendente", "Cont
 verificar(len(at.text_area) == 1 and any(b.label == "Registrar" for b in at.button), "Ficha: observação e botão Registrar")
 corpus |= explicativos(textos(at))
 
+print("[Qualidade do dado: comunicação com as escolas]")
+sys.path.insert(0, str(APP))
+from escola_comunicacao import STATUS_COM, catalogo, colunas_tipo, faltam_acoes, mensagem, pendencias_da_escola  # noqa: E402
+from graficos import TIPOS_PENDENCIA  # noqa: E402
+
+pend = pd.read_parquet(APP / "data" / "pendencias_escola.parquet")
+cat = catalogo()
+verificar(len(cat) == 6 and set(cat["tipo_pendencia"]) == set(colunas_tipo().values()),
+          "catálogo: 6 tipos, os mesmos das colunas qtd_* do parquet de pendências")
+verificar(cat[["dimensao_qualidade", "responsavel_correcao", "acao_sugerida"]].notna().all().all()
+          and (cat["acao_sugerida"].str.strip() != "").all(), "catálogo: dimensão, responsável e ação em todos os tipos")
+verificar(faltam_acoes(pend) == [], "toda escola da lista tem ação sugerida para cada tipo com pendência")
+sem_acao = [e for _, l in pend.iterrows() for e in
+            (pendencias_da_escola(l)["Ação sugerida"].tolist()) if not str(e).strip() or e == "—"]
+verificar(not sem_acao, "tabela de cada escola: nenhuma ação vazia")
+at = rodar("paginas/qualidade.py")
+verificar(len(at.exception) == 0, "Qualidade: roda sem exceção")
+verificar(any("Comunicação com as escolas" in str(m.value) for m in at.markdown), "Qualidade: seção 'Comunicação com as escolas'")
+verificar(any("pseudônimo" in str(i.value) and "simulação" in str(i.value) for i in at.info),
+          "Qualidade: avisos de pseudônimo e de simulação visíveis")
+verificar([m.label for m in at.metric if m.label in STATUS_COM] == STATUS_COM, "Qualidade: contadores dos 4 status")
+verificar(len(at.dataframe) >= 1, "Qualidade: lista de escolas exibida")
+for filtro in STATUS_COM:
+    at = rodar("paginas/qualidade.py", {"qc_filtro": filtro})
+    verificar(len(at.exception) == 0 and sem_hex(at), f"Qualidade: filtro de status = {filtro}")
+
+linha0 = pend[pend["escola_identificada"]].sort_values("ranking_pendencias").iloc[0]
+linhac = pend[~pend["escola_identificada"]].iloc[0]
+for linha in (linha0, linhac):
+    msg = mensagem(linha, None)
+    verificar(str(linha["escola"]) in msg and all(TIPOS_PENDENCIA[c] in msg for c in TIPOS_PENDENCIA if linha[c] > 0),
+              f"mensagem de {linha['escola']}: escola, tipos e ações")
+PARQUET_PEND = APP / "data" / "pendencias_escola.parquet"
+codigo = (
+    f"import sys\nsys.path.insert(0, r'{APP}')\nimport graficos, pandas as pd\n"
+    "from escola_comunicacao import corpo_comunicacao\n"
+    f"p = pd.read_parquet(r'{PARQUET_PEND}')\n"
+    "corpo_comunicacao(p[p['escola_identificada']].sort_values('ranking_pendencias').iloc[0])\n"
+)
+at = AppTest.from_string(codigo, default_timeout=120)
+at.run()
+verificar(len(at.exception) == 0, f"Janela de comunicação: sem exceção ({[e.value for e in at.exception][:1]})")
+verificar(len(at.radio) == 1 and list(at.radio[0].options) == STATUS_COM, "Janela: radio com os 4 status")
+verificar(len(at.text_area) == 1 and any(b.label == "Registrar" for b in at.button), "Janela: observação e botão Registrar")
+verificar(sem_hex(at), "Janela: nenhum texto bate com a regex de identificador")
+corpus |= explicativos(textos(at))
+at = rodar("paginas/qualidade.py")
+corpus |= explicativos(textos(at))
+
 # filtros da Busca ativa: bimestre, recorte e nível (nenhuma combinação pode quebrar)
 print("[Busca ativa: filtros]")
 for bim in (1, 4):

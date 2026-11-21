@@ -508,13 +508,36 @@ def autoverificar_arredondamento() -> None:
 
 
 # ----------------------------------------------------------------------------
+# catálogo de tipos de pendência (opção --apenas-catalogo-pendencias)
+# ----------------------------------------------------------------------------
+def exportar_catalogo_pendencias(q: Consulta) -> int:
+    """Grava só app/data/pendencias_tipos.parquet: tipo, dimensão, responsável e ação sugerida do mart.
+
+    É metadado de regra (sem aluno, escola ou linha individual); uma única consulta de leitura.
+    """
+    df = q.rodar(
+        "select distinct tipo_pendencia, dimensao_qualidade, responsavel_correcao, acao_sugerida "
+        f"from {q.tabela('mart_educacao__pendencias_qualidade')}"
+    )
+    df = df.sort_values("tipo_pendencia").reset_index(drop=True)
+    return gravar(df, "pendencias_tipos")
+
+
+# ----------------------------------------------------------------------------
 # principal
 # ----------------------------------------------------------------------------
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--projeto", default="desafio-rmi-515002")
     ap.add_argument("--dataset", default="dbt_dev_marts")
+    ap.add_argument("--apenas-catalogo-pendencias", action="store_true",
+                    help="grava só app/data/pendencias_tipos.parquet (não roda o export completo)")
     args = ap.parse_args()
+
+    if args.apenas_catalogo_pendencias:
+        n = exportar_catalogo_pendencias(Consulta(args.projeto, args.dataset))
+        print(f"pendencias_tipos.parquet: {n} linhas")
+        return
 
     autoverificar_arredondamento()
     v = ler_vars()
